@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+<<<<<<< HEAD
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
 
@@ -21,12 +22,15 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(VkInstance           
 }
 
 
+=======
+>>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
 csl::vulkan::vulkan()
 {
 	init_vulkan();
 }
 csl::vulkan::~vulkan()
 {
+<<<<<<< HEAD
 	device_.destroy();
 
 	if (enable_validation_layers) {
@@ -34,6 +38,9 @@ csl::vulkan::~vulkan()
 	}
 	instance_.destroy();
 
+=======
+	instance_.destroy();
+>>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
 	
 }
 
@@ -41,9 +48,12 @@ csl::vulkan::~vulkan()
 void csl::vulkan::init_vulkan()
 {
 	create_instance();
+<<<<<<< HEAD
 	setup_debug_messenger();
 	pick_physical_device();
 	create_logical_device();
+=======
+>>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
 }
 
 void csl::vulkan::create_instance()
@@ -56,6 +66,7 @@ void csl::vulkan::create_instance()
 		1, "Sky", 
 		1, VK_API_VERSION_1_2);
 
+<<<<<<< HEAD
 	auto extensions = get_required_extensions();
 
 
@@ -67,10 +78,22 @@ void csl::vulkan::create_instance()
 		extensions.data());
 
 	instance_ = vk::createInstance(instance_create_info);
+=======
+	uint32_t extension_count = 0;
+	auto data = glfwGetRequiredInstanceExtensions(&extension_count);
+
+	auto instance_create_info = vk::InstanceCreateInfo({},
+		&application_info, enable_validation_layers ?static_cast<uint32_t>(validation_layers.size()):0, {enable_validation_layers? validation_layers.data():nullptr},
+		extension_count,
+		data);
+	instance_ = vk::createInstance(instance_create_info);
+	auto extensions = vk::enumerateInstanceExtensionProperties();
+>>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
 
 
 }
 
+<<<<<<< HEAD
 inline bool csl::vulkan::check_validation_layer()
 {
 	auto layer_props = vk::enumerateInstanceLayerProperties();
@@ -212,4 +235,9 @@ void csl::vulkan::main_loop()
 {
 	
 
+=======
+
+void csl::vulkan::main_loop()
+{
+>>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
 }
