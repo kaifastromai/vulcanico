@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-<<<<<<< HEAD
+using namespace csl;
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
 
@@ -22,15 +22,13 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(VkInstance           
 }
 
 
-=======
->>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
+
 csl::vulkan::vulkan()
 {
 	init_vulkan();
 }
 csl::vulkan::~vulkan()
 {
-<<<<<<< HEAD
 	device_.destroy();
 
 	if (enable_validation_layers) {
@@ -38,9 +36,7 @@ csl::vulkan::~vulkan()
 	}
 	instance_.destroy();
 
-=======
 	instance_.destroy();
->>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
 	
 }
 
@@ -48,12 +44,9 @@ csl::vulkan::~vulkan()
 void csl::vulkan::init_vulkan()
 {
 	create_instance();
-<<<<<<< HEAD
 	setup_debug_messenger();
 	pick_physical_device();
 	create_logical_device();
-=======
->>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
 }
 
 void csl::vulkan::create_instance()
@@ -66,7 +59,6 @@ void csl::vulkan::create_instance()
 		1, "Sky", 
 		1, VK_API_VERSION_1_2);
 
-<<<<<<< HEAD
 	auto extensions = get_required_extensions();
 
 
@@ -78,7 +70,6 @@ void csl::vulkan::create_instance()
 		extensions.data());
 
 	instance_ = vk::createInstance(instance_create_info);
-=======
 	uint32_t extension_count = 0;
 	auto data = glfwGetRequiredInstanceExtensions(&extension_count);
 
@@ -88,12 +79,10 @@ void csl::vulkan::create_instance()
 		data);
 	instance_ = vk::createInstance(instance_create_info);
 	auto extensions = vk::enumerateInstanceExtensionProperties();
->>>>>>> 82af8a3c4fd6fdc9b53ee95b7a4ab081c40066fb
 
 
 }
 
-<<<<<<< HEAD
 inline bool csl::vulkan::check_validation_layer()
 {
 	auto layer_props = vk::enumerateInstanceLayerProperties();
