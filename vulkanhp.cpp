@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-using namespace csl;
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
 
@@ -21,6 +20,7 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(VkInstance           
 	return pfnVkDestroyDebugUtilsMessengerEXT(instance, messenger, pAllocator);
 }
 
+using namespace csl;
 
 
 csl::vulkan::vulkan()
@@ -70,17 +70,6 @@ void csl::vulkan::create_instance()
 		extensions.data());
 
 	instance_ = vk::createInstance(instance_create_info);
-	uint32_t extension_count = 0;
-	auto data = glfwGetRequiredInstanceExtensions(&extension_count);
-
-	auto instance_create_info = vk::InstanceCreateInfo({},
-		&application_info, enable_validation_layers ?static_cast<uint32_t>(validation_layers.size()):0, {enable_validation_layers? validation_layers.data():nullptr},
-		extension_count,
-		data);
-	instance_ = vk::createInstance(instance_create_info);
-	auto extensions = vk::enumerateInstanceExtensionProperties();
-
-
 }
 
 inline bool csl::vulkan::check_validation_layer()
@@ -189,9 +178,9 @@ bool csl::vulkan::is_device_suitable(vk::PhysicalDevice device)
 
 }
 
-csl::vulkan::queue_find_queue_families csl::vulkan::find_queue_families(vk::PhysicalDevice device)
+csl::vulkan::queue_family_indices csl::vulkan::find_queue_families(vk::PhysicalDevice device)
 {
-	queue_find_queue_families indices;
+	queue_family_indices indices;
 	auto queue_families = device.getQueueFamilyProperties();
 
 	int i = 0;
