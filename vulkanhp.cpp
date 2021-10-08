@@ -1,5 +1,5 @@
 #include "vulkanhp.h"
-
+#include <set>
 #include <iostream>
 
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
@@ -27,7 +27,7 @@ namespace csl {
 	}
 	csl::vulkan::~vulkan()
 	{
-		instance_.destroySurfaceKHR((VkSurfaceKHR)surface_);
+		instance_.destroySurfaceKHR(surface_);
 		device_.destroy();
 
 		if (enable_validation_layers) {
@@ -168,8 +168,15 @@ namespace csl {
 	bool csl::vulkan::is_device_suitable(vk::PhysicalDevice device)
 	{
 		auto indices = find_queue_families(device);
+		bool swap_chain_adequate = false;
+		bool extension_support = check_device_extension_support(device);
+		if(extension_support)
+		{
+			auto swap_chain_details = query_swapchain_support(device);
+			swap_chain_adequate = !swap_chain_details.formats.empty() && !swap_chain_details.present_mode.empty();
+		}
 
-		return indices.b_complete();
+		return indices.b_complete() && extension_support && swap_chain_adequate;
 
 	}
 
@@ -185,28 +192,89 @@ namespace csl {
 			{
 				indices.graphics_family = i;
 			}
+			if(device.getSurfaceSupportKHR(i,surface_))
+			{
+				indices.present_family = i;
+			}
 			if (indices.b_complete()) break;
 			i++;
 		}
 		return indices;
 	}
+	vk::SurfaceFormatKHR csl::vulkan::choose_swap_surface_format(const std::vector<vk::SurfaceFormatKHR>& formats)
+	{
+		for(const auto& format:formats)
+		{
+			if(format.format==vk::Format::eB8G8R8A8Srgb && format.colorSpace==vk::ColorSpaceKHR::eSrgbNonlinear)
+			{
+				return format;
+			}
+		}
+		return formats[0];
+	}
+
+	vk::PresentModeKHR vulkan::choose_swap_present_mode(const std::vector<vk::PresentModeKHR> present_modes)
+	{
+		for(const auto& mode:present_modes)
+		{
+			if(mode==vk::PresentModeKHR::eMailbox)
+			{
+				return mode;
+			}
+		}
+        
+		return vk::PresentModeKHR::eFifo;
+	}
 
 	void csl::vulkan::create_logical_device()
 	{
 		auto indices = find_queue_families(physical_device_);
+		std::vector<vk::DeviceQueueCreateInfo> device_queue_create_infos;
+		std::set<uint32_t> unique_queue_families{ indices.graphics_family.value(),indices.present_family.value() };
 		float queue_priority = 1.0f;
+		for(auto queue_fam:unique_queue_families)
+		{
+			device_queue_create_infos.push_back(vk::DeviceQueueCreateInfo({}, queue_fam, 1, &queue_priority));
+		}
 		auto device_queue_info = vk::DeviceQueueCreateInfo({}, indices.graphics_family.value(), 1, &queue_priority);
 		vk::PhysicalDeviceFeatures device_features;
-		vk::DeviceCreateInfo device_create_info({}, 1, &device_queue_info);
+		vk::DeviceCreateInfo device_create_info({}, device_queue_create_infos.size(), device_queue_create_infos.data());
 		device_create_info.pEnabledFeatures = &device_features;
+		device_create_info.enabledExtensionCount = device_extensions.size();
+		device_create_info.ppEnabledExtensionNames = device_extensions.data();
 
 		device_ = physical_device_.createDevice(device_create_info);
 		graphics_queue_ = device_.getQueue(indices.graphics_family.value(),0);
+		present_queue_ = device_.getQueue(indices.present_family.value(), 0);
 
+	}
+
+
+	csl::vulkan::swapchain_support_details csl::vulkan::query_swapchain_support(vk::PhysicalDevice device)
+	{
+		swapchain_support_details details;
+		details.capabilities=device.getSurfaceCapabilitiesKHR(surface_);
+		details.formats = device.getSurfaceFormatsKHR(surface_);
+
+		details.present_mode = device.getSurfacePresentModesKHR(surface_);
+		return details;
+	}
+
+
+	 bool vulkan::check_device_extension_support(vk::PhysicalDevice device)
+	{
+		auto available_extensions = device.enumerateDeviceExtensionProperties();
+		std::set<std::string> required_extensions{ device_extensions.begin(),device_extensions.end() };
+		for(const auto& extension:available_extensions)
+		{
+			required_extensions.erase(extension.extensionName);
+		}
+
+		return required_extensions.empty();
 	}
 
 	void csl::vulkan::main_loop()
 	{
-
+		
 	}
 }
