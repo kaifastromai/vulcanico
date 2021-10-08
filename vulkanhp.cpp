@@ -226,6 +226,23 @@ namespace csl {
 		return vk::PresentModeKHR::eFifo;
 	}
 
+	vk::Extent2D vulkan::choose_swap_extent(const vk::SurfaceCapabilitiesKHR& capabilities)
+	{
+		if(capabilities.currentExtent.width!=UINT32_MAX)
+		{
+			return capabilities.currentExtent;
+		}else
+		{
+			auto actual_extent = glvk_.get_framebuffer_size();
+			actual_extent.width = std::clamp(actual_extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+
+			actual_extent.height = std::clamp(actual_extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+            
+			return actual_extent;
+          
+		}
+	}
+
 	void csl::vulkan::create_logical_device()
 	{
 		auto indices = find_queue_families(physical_device_);

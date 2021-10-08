@@ -64,5 +64,11 @@ namespace csl
 				throw std::runtime_error("Failed to create window surface!");
 			}
 		}
+		vk::Extent2D get_framebuffer_size()
+		{
+			int width, height;
+			glfwGetFramebufferSize(window, &width, &height);
+			return vk::Extent2D(width, height);
+		}
 	};
 }

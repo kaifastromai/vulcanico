@@ -77,16 +77,35 @@ class vulkan {
     vk::SurfaceFormatKHR choose_swap_surface_format(const std::vector<vk::SurfaceFormatKHR>& formats);
     vk::PresentModeKHR choose_swap_present_mode(const std::vector < vk::PresentModeKHR> present_modes);
 
-    vk::Extent2D choose_swap_extent(const vk::SurfaceCapabilitiesKHR& capabilities)
+    vk::Extent2D choose_swap_extent(const vk::SurfaceCapabilitiesKHR& capabilities);
+
+    void create_swapchain()
     {
-	    if(capabilities.currentExtent.width!=UINT32_MAX)
-	    {
-            return capabilities.currentExtent;
-	    }else
-	    {
-            int width, height;
-            
-	    }
+        swapchain_support_details details = query_swapchain_support(physical_device_);
+        auto surface_format = choose_swap_surface_format(details.formats);
+        auto present_mode = choose_swap_present_mode(details.present_mode);
+        auto extent = choose_swap_extent(details.capabilities);
+
+        uint32_t image_count = std::clamp(details.capabilities.minImageCount + 1, details.capabilities.minImageCount, details.capabilities.maxImageCount);
+
+        auto swapchain_info = vk::SwapchainCreateInfoKHR({}, surface_, image_count, surface_format.format, surface_format.colorSpace, extent, 1, vk::ImageUsageFlagBits::eColorAttachment);
+
+        auto indices = find_queue_families(physical_device_);
+        uint32_t queue_family_indices[] = {indices.graphics_family.value(),indices.present_family.has_value()};
+
+        if(indices.graphics_family!=indices.present_family)
+        {
+            swapchain_info.imageSharingMode = vk::SharingMode::eConcurrent;
+            swapchain_info.queueFamilyIndexCount = 2;
+            swapchain_info.pQueueFamilyIndices = queue_family_indices;
+        }else
+        {
+            swapchain_info.imageSharingMode = vk::SharingMode::eExclusive;
+            swapchain_info.queueFamilyIndexCount = 1;
+            swapchain_info.pQueueFamilyIndices = nullptr;
+        }
+
+
     }
 
   queue_family_indices find_queue_families(vk::PhysicalDevice device);
