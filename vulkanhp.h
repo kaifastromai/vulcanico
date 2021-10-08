@@ -17,6 +17,23 @@ constexpr bool enable_validation_layers = false;
 #else
 constexpr bool enable_validation_layers = true;
 #endif
+struct queue_family_indices
+{
+    std::optional<uint32_t> graphics_family;
+    std::optional<uint32_t> present_family;
+
+    bool b_complete()
+    {
+        return graphics_family.has_value() && present_family.has_value();
+
+    }
+};
+struct swapchain_support_details
+{
+    vk::SurfaceCapabilitiesKHR capabilities;
+    std::vector<vk::SurfaceFormatKHR> formats;
+    std::vector<vk::PresentModeKHR> present_mode;
+};
 
 class vulkan {
   // public vars
@@ -52,23 +69,7 @@ class vulkan {
   void setup_debug_messenger();
   void pick_physical_device();
   bool is_device_suitable(vk::PhysicalDevice device);
-    struct queue_family_indices
-    {
-        std::optional<uint32_t> graphics_family;
-        std::optional<uint32_t> present_family;
-
-        bool b_complete()
-        {
-            return graphics_family.has_value() && present_family.has_value();
-
-        }
-    };
-    struct swapchain_support_details
-    {
-        vk::SurfaceCapabilitiesKHR capabilities;
-        std::vector<vk::SurfaceFormatKHR> formats;
-        std::vector<vk::PresentModeKHR> present_mode;
-    };
+   
     swapchain_support_details query_swapchain_support(vk::PhysicalDevice);
 
     void create_logical_device();
