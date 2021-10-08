@@ -56,5 +56,13 @@ namespace csl
 		{
 			return glfw_extensions_;
 		}
+
+		void create_surface(vk::Instance instance, VkSurfaceKHR *surface)
+		{
+			if(glfwCreateWindowSurface(instance,window,nullptr,surface)!=VK_SUCCESS)
+			{
+				throw std::runtime_error("Failed to create window surface!");
+			}
+		}
 	};
 }
