@@ -43,7 +43,7 @@ namespace csl {
 	{
 		create_instance();
 		setup_debug_messenger();
-		glvk_.create_surface(instance_,&surface_);
+		glvk_.create_surface(instance_, &surface_);
 		pick_physical_device();
 		create_logical_device();
 	}
@@ -170,7 +170,7 @@ namespace csl {
 		auto indices = find_queue_families(device);
 		bool swap_chain_adequate = false;
 		bool extension_support = check_device_extension_support(device);
-		if(extension_support)
+		if (extension_support)
 		{
 			auto swap_chain_details = query_swapchain_support(device);
 			swap_chain_adequate = !swap_chain_details.formats.empty() && !swap_chain_details.present_mode.empty();
@@ -180,7 +180,7 @@ namespace csl {
 
 	}
 
-	vulkan::queue_family_indices csl::vulkan::find_queue_families(vk::PhysicalDevice device)
+	queue_family_indices csl::vulkan::find_queue_families(vk::PhysicalDevice device)
 	{
 		queue_family_indices indices;
 		auto queue_families = device.getQueueFamilyProperties();
@@ -192,7 +192,7 @@ namespace csl {
 			{
 				indices.graphics_family = i;
 			}
-			if(device.getSurfaceSupportKHR(i,surface_))
+			if (device.getSurfaceSupportKHR(i, surface_))
 			{
 				indices.present_family = i;
 			}
@@ -203,9 +203,9 @@ namespace csl {
 	}
 	vk::SurfaceFormatKHR csl::vulkan::choose_swap_surface_format(const std::vector<vk::SurfaceFormatKHR>& formats)
 	{
-		for(const auto& format:formats)
+		for (const auto& format : formats)
 		{
-			if(format.format==vk::Format::eB8G8R8A8Srgb && format.colorSpace==vk::ColorSpaceKHR::eSrgbNonlinear)
+			if (format.format == vk::Format::eB8G8R8A8Srgb && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
 			{
 				return format;
 			}
@@ -215,14 +215,14 @@ namespace csl {
 
 	vk::PresentModeKHR vulkan::choose_swap_present_mode(const std::vector<vk::PresentModeKHR> present_modes)
 	{
-		for(const auto& mode:present_modes)
+		for (const auto& mode : present_modes)
 		{
-			if(mode==vk::PresentModeKHR::eMailbox)
+			if (mode == vk::PresentModeKHR::eMailbox)
 			{
 				return mode;
 			}
 		}
-        
+
 		return vk::PresentModeKHR::eFifo;
 	}
 
@@ -249,7 +249,7 @@ namespace csl {
 		std::vector<vk::DeviceQueueCreateInfo> device_queue_create_infos;
 		std::set<uint32_t> unique_queue_families{ indices.graphics_family.value(),indices.present_family.value() };
 		float queue_priority = 1.0f;
-		for(auto queue_fam:unique_queue_families)
+		for (auto queue_fam : unique_queue_families)
 		{
 			device_queue_create_infos.push_back(vk::DeviceQueueCreateInfo({}, queue_fam, 1, &queue_priority));
 		}
@@ -261,16 +261,16 @@ namespace csl {
 		device_create_info.ppEnabledExtensionNames = device_extensions.data();
 
 		device_ = physical_device_.createDevice(device_create_info);
-		graphics_queue_ = device_.getQueue(indices.graphics_family.value(),0);
+		graphics_queue_ = device_.getQueue(indices.graphics_family.value(), 0);
 		present_queue_ = device_.getQueue(indices.present_family.value(), 0);
 
 	}
 
 
-	csl::vulkan::swapchain_support_details csl::vulkan::query_swapchain_support(vk::PhysicalDevice device)
+	csl::swapchain_support_details csl::vulkan::query_swapchain_support(vk::PhysicalDevice device)
 	{
 		swapchain_support_details details;
-		details.capabilities=device.getSurfaceCapabilitiesKHR(surface_);
+		details.capabilities = device.getSurfaceCapabilitiesKHR(surface_);
 		details.formats = device.getSurfaceFormatsKHR(surface_);
 
 		details.present_mode = device.getSurfacePresentModesKHR(surface_);
@@ -278,11 +278,11 @@ namespace csl {
 	}
 
 
-	 bool vulkan::check_device_extension_support(vk::PhysicalDevice device)
+	bool vulkan::check_device_extension_support(vk::PhysicalDevice device)
 	{
 		auto available_extensions = device.enumerateDeviceExtensionProperties();
 		std::set<std::string> required_extensions{ device_extensions.begin(),device_extensions.end() };
-		for(const auto& extension:available_extensions)
+		for (const auto& extension : available_extensions)
 		{
 			required_extensions.erase(extension.extensionName);
 		}
@@ -292,6 +292,6 @@ namespace csl {
 
 	void csl::vulkan::main_loop()
 	{
-		
+
 	}
 }
