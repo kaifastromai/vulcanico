@@ -27,6 +27,7 @@ namespace csl {
 	}
 	csl::vulkan::~vulkan()
 	{
+		device_.destroySwapchainKHR(swap_chain_);
 		instance_.destroySurfaceKHR(surface_);
 		device_.destroy();
 
@@ -241,6 +242,41 @@ namespace csl {
 			return actual_extent;
           
 		}
+	}
+
+	void vulkan::create_swapchain()
+	{
+		swapchain_support_details details = query_swapchain_support(physical_device_);
+		auto surface_format = choose_swap_surface_format(details.formats);
+		auto present_mode = choose_swap_present_mode(details.present_mode);
+		auto extent = choose_swap_extent(details.capabilities);
+
+		uint32_t image_count = std::clamp(details.capabilities.minImageCount + 1, details.capabilities.minImageCount, details.capabilities.maxImageCount);
+
+		auto swapchain_info = vk::SwapchainCreateInfoKHR({}, surface_, image_count, surface_format.format, surface_format.colorSpace, extent, 1, vk::ImageUsageFlagBits::eColorAttachment);
+
+		auto indices = find_queue_families(physical_device_);
+		uint32_t queue_family_indices[] = {indices.graphics_family.value(),indices.present_family.has_value()};
+
+		if(indices.graphics_family!=indices.present_family)
+		{
+			swapchain_info.imageSharingMode = vk::SharingMode::eConcurrent;
+			swapchain_info.queueFamilyIndexCount = 2;
+			swapchain_info.pQueueFamilyIndices = queue_family_indices;
+		}else
+		{
+			swapchain_info.imageSharingMode = vk::SharingMode::eExclusive;
+			swapchain_info.queueFamilyIndexCount = 1;
+			swapchain_info.pQueueFamilyIndices = nullptr;
+		}
+		swapchain_info.preTransform = details.capabilities.currentTransform;
+		swapchain_info.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+		swapchain_info.presentMode = present_mode;
+		swapchain_info.oldSwapchain = VK_NULL_HANDLE;
+		vulkan::swap_chain_ = device_.createSwapchainKHR(swapchain_info);
+
+
+
 	}
 
 	void csl::vulkan::create_logical_device()

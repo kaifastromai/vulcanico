@@ -45,8 +45,12 @@ class vulkan {
   vk::Queue graphics_queue_;
   VkSurfaceKHR surface_;
   vk::Queue present_queue_;
+  vk::SwapchainKHR swap_chain_;
+  std::vector<vk::Image> swap_chain_images;
+  vk::Extent2D swap_extent;
+  vk::Format swap_image_format;
 
- public:
+public:
   vulkan();
 
   void run();
@@ -80,34 +84,7 @@ class vulkan {
 
     vk::Extent2D choose_swap_extent(const vk::SurfaceCapabilitiesKHR& capabilities);
 
-    void create_swapchain()
-    {
-        swapchain_support_details details = query_swapchain_support(physical_device_);
-        auto surface_format = choose_swap_surface_format(details.formats);
-        auto present_mode = choose_swap_present_mode(details.present_mode);
-        auto extent = choose_swap_extent(details.capabilities);
-
-        uint32_t image_count = std::clamp(details.capabilities.minImageCount + 1, details.capabilities.minImageCount, details.capabilities.maxImageCount);
-
-        auto swapchain_info = vk::SwapchainCreateInfoKHR({}, surface_, image_count, surface_format.format, surface_format.colorSpace, extent, 1, vk::ImageUsageFlagBits::eColorAttachment);
-
-        auto indices = find_queue_families(physical_device_);
-        uint32_t queue_family_indices[] = {indices.graphics_family.value(),indices.present_family.has_value()};
-
-        if(indices.graphics_family!=indices.present_family)
-        {
-            swapchain_info.imageSharingMode = vk::SharingMode::eConcurrent;
-            swapchain_info.queueFamilyIndexCount = 2;
-            swapchain_info.pQueueFamilyIndices = queue_family_indices;
-        }else
-        {
-            swapchain_info.imageSharingMode = vk::SharingMode::eExclusive;
-            swapchain_info.queueFamilyIndexCount = 1;
-            swapchain_info.pQueueFamilyIndices = nullptr;
-        }
-
-
-    }
+    void create_swapchain();
 
   queue_family_indices find_queue_families(vk::PhysicalDevice device);
   void main_loop();
