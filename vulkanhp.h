@@ -23,6 +23,8 @@ class vulkan {
   vk::Instance instance_;
   vk::PhysicalDevice physical_device_ = VK_NULL_HANDLE;
   vk::Device device_;
+  vk::Queue graphics_queue_;
+ VkSurfaceKHR surface_;
 
  public:
   vulkan();
