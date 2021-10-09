@@ -1,6 +1,8 @@
 #include "vulkanhp.h"
 #include <set>
 #include <iostream>
+#include <ranges>
+#include <algorithm>
 
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
@@ -27,6 +29,12 @@ namespace csl {
 	}
 	csl::vulkan::~vulkan()
 	{
+		device_.destroyPipeline(graphics_pipeline_);
+		device_.destroyPipelineLayout(pipeline_layout_);
+		for(auto &image_view: swap_chain_images_views)
+		{
+			device_.destroyImageView(image_view, nullptr);
+		}
 		device_.destroySwapchainKHR(swap_chain_);
 		instance_.destroySurfaceKHR(surface_);
 		device_.destroy();
@@ -47,6 +55,12 @@ namespace csl {
 		glvk_.create_surface(instance_, &surface_);
 		pick_physical_device();
 		create_logical_device();
+		create_swapchain();
+		create_image_views();
+		create_render_pass();
+		create_graphics_pipeline();
+
+
 	}
 
 	void csl::vulkan::create_instance()
@@ -248,12 +262,13 @@ namespace csl {
 	{
 		swapchain_support_details details = query_swapchain_support(physical_device_);
 		auto surface_format = choose_swap_surface_format(details.formats);
+		swap_image_format = surface_format.format;
 		auto present_mode = choose_swap_present_mode(details.present_mode);
-		auto extent = choose_swap_extent(details.capabilities);
+		swap_extent = choose_swap_extent(details.capabilities);
 
 		uint32_t image_count = std::clamp(details.capabilities.minImageCount + 1, details.capabilities.minImageCount, details.capabilities.maxImageCount);
 
-		auto swapchain_info = vk::SwapchainCreateInfoKHR({}, surface_, image_count, surface_format.format, surface_format.colorSpace, extent, 1, vk::ImageUsageFlagBits::eColorAttachment);
+		auto swapchain_info = vk::SwapchainCreateInfoKHR({}, surface_, image_count, surface_format.format, surface_format.colorSpace, swap_extent, 1, vk::ImageUsageFlagBits::eColorAttachment);
 
 		auto indices = find_queue_families(physical_device_);
 		uint32_t queue_family_indices[] = {indices.graphics_family.value(),indices.present_family.has_value()};
@@ -275,7 +290,144 @@ namespace csl {
 		swapchain_info.oldSwapchain = VK_NULL_HANDLE;
 		vulkan::swap_chain_ = device_.createSwapchainKHR(swapchain_info);
 
+		swap_chain_images = device_.getSwapchainImagesKHR(swap_chain_);
 
+
+
+
+	}
+
+	void vulkan::create_image_views()
+	{
+		swap_chain_images_views.resize(swap_chain_images.size());
+
+		using namespace  std;
+		std::vector<int> ints;
+		ints | views::filter([=](int i)
+			{
+				return i == 0;
+			});
+
+		for(size_t i=0;i<swap_chain_images.size();i++)
+		{
+			auto image_view_info = vk::ImageViewCreateInfo({}, swap_chain_images[i], vk::ImageViewType::e2D, swap_image_format, vk::ComponentMapping(), vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+			if(device_.createImageView(&image_view_info, nullptr, &swap_chain_images_views[i])!=vk::Result::eSuccess)
+			{
+				throw std::runtime_error("Could not create image views");
+			}
+		}
+
+
+
+	}
+
+	void vulkan::create_graphics_pipeline()
+	{
+		auto vert_shader_code = read_shader("shaders/vert.spv");
+		auto frag_shader_code = read_shader("shaders/frag.spv");
+
+		auto vert_shader_module = create_shader_module(vert_shader_code);
+		auto frag_shader_module = create_shader_module(frag_shader_code);
+
+		auto vert_shader_stage_info = vk::PipelineShaderStageCreateInfo({}, {}, vert_shader_module, "main");
+		auto frag_shader_stage_info = vk::PipelineShaderStageCreateInfo({}, {}, frag_shader_module, "main");
+
+		vk::PipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };
+
+		auto vert_input_info = vk::PipelineVertexInputStateCreateInfo();
+
+		auto input_asm_info = vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList, VK_FALSE);
+
+		/*A viewport basically describes the region of the framebuffer that the output will be rendered to. This will almost always be (0, 0) to (width, height) and in this tutorial that will also be the case.*/
+
+		auto viewport=vk::Viewport({}, {}, swap_extent.width, swap_extent.height, 0.0, 1.0);
+
+		auto scissors = vk::Rect2D({ 0,0 }, swap_extent);
+
+		auto viewport_state_info = vk::PipelineViewportStateCreateInfo({}, 1, &viewport, 1, &scissors);
+		auto rasterizer = vk::PipelineRasterizationStateCreateInfo({}, VK_FALSE,VK_FALSE,{},vk::CullModeFlagBits::eBack,vk::FrontFace::eClockwise,VK_FALSE);
+		rasterizer.lineWidth = 1.0f;
+
+		auto multi_info = vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, VK_FALSE);
+
+		auto color_blend_attachment = vk::PipelineColorBlendAttachmentState(VK_FALSE);
+		color_blend_attachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+
+		auto color_blending_info = vk::PipelineColorBlendStateCreateInfo({}, VK_FALSE);
+		color_blending_info.attachmentCount = 1;
+		color_blending_info.pAttachments = &color_blend_attachment;
+		auto pipeline_layout_info = vk::PipelineLayoutCreateInfo();
+		if(device_.createPipelineLayout(&pipeline_layout_info,nullptr,&pipeline_layout_)!=vk::Result::eSuccess)
+		{
+			throw std::runtime_error("Could not create pipeline layout");
+		}
+
+		auto pipeline_info = vk::GraphicsPipelineCreateInfo({}, 1, shader_stages, &vert_input_info, &input_asm_info, {}, &viewport_state_info, &rasterizer, &multi_info, {}, &color_blending_info, nullptr, pipeline_layout_, render_pass_, 0);
+
+		auto res= device_.createGraphicsPipeline(VK_NULL_HANDLE, pipeline_info);
+		if(res.result!=vk::Result::eSuccess)
+		{
+			throw std::runtime_error("Error in creating pipeline");
+		}
+		graphics_pipeline_ = res.value;
+
+
+
+
+		device_.destroyShaderModule(vert_shader_module);
+		device_.destroyShaderModule(frag_shader_module);
+
+	}
+
+	void vulkan::create_render_pass()
+	{
+		vk::AttachmentDescription color_attachment{};
+		color_attachment.format = swap_image_format;
+		color_attachment.samples = vk::SampleCountFlagBits::e1;
+		color_attachment.loadOp = vk::AttachmentLoadOp::eClear;
+		color_attachment.storeOp = vk::AttachmentStoreOp::eStore;
+		color_attachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+		color_attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+		color_attachment.initialLayout = vk::ImageLayout::eUndefined;
+		color_attachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+
+		vk::AttachmentReference color_attachment_ref({}, vk::ImageLayout::eUndefined);
+		auto subpass = vk::SubpassDescription({}, vk::PipelineBindPoint::eGraphics, 1, &color_attachment_ref);
+
+		auto render_pass_info = vk::RenderPassCreateInfo({}, 1, &color_attachment, 1, &subpass);
+		if(device_.createRenderPass(&render_pass_info,nullptr,&render_pass_)!=vk::Result::eSuccess)
+		{
+			throw std::runtime_error("Failed to create render pass");
+		}
+
+
+
+	}
+
+	vk::ShaderModule vulkan::create_shader_module(std::vector<char>& code)
+	{
+		auto shader_create_info = vk::ShaderModuleCreateInfo({}, code.size(), reinterpret_cast<const uint32_t*>(code.data()));
+
+		auto shader_module= device_.createShaderModule(shader_create_info, nullptr);
+		return shader_module;
+
+	}
+
+	std::vector<char> vulkan::read_shader(const std::string& filename)
+	{
+		std::ifstream file(filename, std::ios::ate | std::ios::binary);
+		if(!file.is_open())
+		{
+			throw std::runtime_error("Could not open file!");
+		}
+		auto file_size = file.tellg();
+		std::vector<char> buffer(file_size);
+
+		file.seekg(0);
+		file.read(buffer.data(), file_size);
+
+		file.close();
+		return buffer;
 
 	}
 

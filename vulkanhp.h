@@ -1,8 +1,8 @@
 #pragma once
 #include <algorithm>
+#include <fstream>
 #include <optional>
 #include <vulkan\vulkan.hpp>
-
 #include "vkutils.h"
 
 namespace csl {
@@ -46,10 +46,14 @@ class vulkan {
   VkSurfaceKHR surface_;
   vk::Queue present_queue_;
   vk::SwapchainKHR swap_chain_;
+  int thisIsCool;
   std::vector<vk::Image> swap_chain_images;
   vk::Extent2D swap_extent;
   vk::Format swap_image_format;
-
+  std::vector<vk::ImageView> swap_chain_images_views;
+  vk::PipelineLayout pipeline_layout_;
+  vk::RenderPass render_pass_;
+  vk::Pipeline graphics_pipeline_;
 public:
   vulkan();
 
@@ -85,6 +89,12 @@ public:
     vk::Extent2D choose_swap_extent(const vk::SurfaceCapabilitiesKHR& capabilities);
 
     void create_swapchain();
+    void create_image_views();
+    void create_graphics_pipeline();
+    void create_render_pass();
+    vk::ShaderModule create_shader_module(std::vector<char>& code);
+
+  static std::vector<char> read_shader(const std::string& filename);
 
   queue_family_indices find_queue_families(vk::PhysicalDevice device);
   void main_loop();
