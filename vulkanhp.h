@@ -36,7 +36,6 @@ struct swapchain_support_details
 };
 
 class vulkan {
-  // public vars
  private:
   glvk glvk_ = glvk(WIDTH, HEIGHT, "Vulkan");
   vk::Instance instance_;
@@ -54,6 +53,12 @@ class vulkan {
   vk::PipelineLayout pipeline_layout_;
   vk::RenderPass render_pass_;
   vk::Pipeline graphics_pipeline_;
+  std::vector<vk::Framebuffer> framebuffers_;
+  vk::CommandPool command_pool_;
+  std::vector<vk::CommandBuffer> command_buffers_;
+  vk::Semaphore smph_image_available_;
+  vk::Semaphore smph_render_finished_;
+
 public:
   vulkan();
 
@@ -62,7 +67,11 @@ public:
   ~vulkan();
 
  private:
+  void create_command_pool();
+  void create_command_buffers();
+  void create_semaphores();
   void init_vulkan();
+  static void populate_debug_messenger_info(vk::DebugUtilsMessengerCreateInfoEXT& info);
   void create_instance();
 
   static bool check_validation_layer();
@@ -94,9 +103,12 @@ public:
     void create_render_pass();
     vk::ShaderModule create_shader_module(std::vector<char>& code);
 
+    void create_framebuffers();
+
   static std::vector<char> read_shader(const std::string& filename);
 
   queue_family_indices find_queue_families(vk::PhysicalDevice device);
+  void draw_frame();
   void main_loop();
 
  public:

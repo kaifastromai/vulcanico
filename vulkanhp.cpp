@@ -29,8 +29,17 @@ namespace csl {
 	}
 	csl::vulkan::~vulkan()
 	{
+		device_.destroySemaphore(smph_image_available_);
+		device_.destroySemaphore(smph_render_finished_);
+		device_.destroyCommandPool(command_pool_);
+		for(auto f:framebuffers_)
+		{
+			device_.destroyFramebuffer(f);
+		}
 		device_.destroyPipeline(graphics_pipeline_);
 		device_.destroyPipelineLayout(pipeline_layout_);
+
+		device_.destroyRenderPass(render_pass_);
 		for(auto &image_view: swap_chain_images_views)
 		{
 			device_.destroyImageView(image_view, nullptr);
@@ -47,6 +56,55 @@ namespace csl {
 
 	}
 
+	void vulkan::create_command_pool()
+	{
+		auto family_indides = find_queue_families(physical_device_);
+		auto command_info = vk::CommandPoolCreateInfo({}, family_indides.graphics_family.value());
+
+		command_pool_ = device_.createCommandPool(command_info, nullptr);
+
+	}
+
+	void vulkan::create_command_buffers()
+	{
+
+		auto command_info = vk::CommandBufferAllocateInfo(command_pool_, vk::CommandBufferLevel::ePrimary, framebuffers_.size());
+
+		//Assumes this succeeds!
+		command_buffers_ = device_.allocateCommandBuffers(command_info);
+
+		for(size_t i=0;i<command_buffers_.size();i++)
+		{
+			auto begin_info = vk::CommandBufferBeginInfo();
+			if(command_buffers_[i].begin(&begin_info)!=vk::Result::eSuccess)
+			{
+				throw std::runtime_error("Failed to begin recording command buffer");
+			}
+
+			auto render_pass_info = vk::RenderPassBeginInfo(render_pass_, framebuffers_[i]);
+			render_pass_info.renderArea = vk::Rect2D{ {0,0},swap_extent };
+
+			vk::ClearValue clear_color{ {{0.0,0,1,0}} };
+
+			render_pass_info.clearValueCount = 1;
+			render_pass_info.pClearValues = &clear_color;
+			command_buffers_[i].beginRenderPass(render_pass_info, vk::SubpassContents::eInline);
+
+			command_buffers_[i].bindPipeline(vk::PipelineBindPoint::eGraphics,graphics_pipeline_);
+			command_buffers_[i].draw(3, 1, 0, 0);
+
+			command_buffers_[i].end();
+
+		}
+	}
+
+	void vulkan::create_semaphores()
+	{
+		smph_image_available_ = device_.createSemaphore(vk::SemaphoreCreateInfo());
+		smph_render_finished_ = device_.createSemaphore((vk::SemaphoreCreateInfo()));
+
+	}
+
 
 	void csl::vulkan::init_vulkan()
 	{
@@ -59,10 +117,23 @@ namespace csl {
 		create_image_views();
 		create_render_pass();
 		create_graphics_pipeline();
-
-
+		create_framebuffers();
+		create_command_pool();
+		create_command_buffers();
+		create_semaphores();
 	}
 
+	void csl::vulkan::populate_debug_messenger_info(vk::DebugUtilsMessengerCreateInfoEXT& info)
+	{
+		auto severity_flags = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning;
+		auto message_flags = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+			vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+
+		info = vk::DebugUtilsMessengerCreateInfoEXT({}, severity_flags, message_flags
+			, &debug_callback);
+	};
+	
 	void csl::vulkan::create_instance()
 	{
 		if (enable_validation_layers && !check_validation_layer())
@@ -74,10 +145,23 @@ namespace csl {
 			1, VK_API_VERSION_1_2);
 
 		auto extensions = get_required_extensions();
-		auto instance_create_info = vk::InstanceCreateInfo({},
-			&application_info, enable_validation_layers ? static_cast<uint32_t>(validation_layers.size()) : 0, { enable_validation_layers ? validation_layers.data() : nullptr },
-			extensions.size(),
-			extensions.data());
+		auto instance_create_info = vk::InstanceCreateInfo({}, &application_info, {}, {}, extensions.size(), extensions.data());
+
+
+		auto debug_create_info = vk::DebugUtilsMessengerCreateInfoEXT();
+		if(enable_validation_layers)
+		{
+			instance_create_info.enabledLayerCount = validation_layers.size();
+			instance_create_info.ppEnabledLayerNames = validation_layers.data();
+
+			populate_debug_messenger_info(debug_create_info);
+			instance_create_info.pNext = &debug_create_info;
+		}else
+		{
+			instance_create_info.enabledLayerCount = 0;
+			instance_create_info.pNext = nullptr;
+		}
+		
 
 		instance_ = vk::createInstance(instance_create_info);
 	}
@@ -140,6 +224,7 @@ namespace csl {
 			vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning;
 		auto message_flags = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
 			vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+
 		auto info = vk::DebugUtilsMessengerCreateInfoEXT({}, severity_flags, message_flags
 			, &debug_callback);
 
@@ -213,9 +298,16 @@ namespace csl {
 			}
 			if (indices.b_complete()) break;
 			i++;
+			
 		}
 		return indices;
 	}
+
+	void vulkan::draw_frame()
+	{
+		
+	}
+
 	vk::SurfaceFormatKHR csl::vulkan::choose_swap_surface_format(const std::vector<vk::SurfaceFormatKHR>& formats)
 	{
 		for (const auto& format : formats)
@@ -329,23 +421,26 @@ namespace csl {
 		auto vert_shader_module = create_shader_module(vert_shader_code);
 		auto frag_shader_module = create_shader_module(frag_shader_code);
 
-		auto vert_shader_stage_info = vk::PipelineShaderStageCreateInfo({}, {}, vert_shader_module, "main");
-		auto frag_shader_stage_info = vk::PipelineShaderStageCreateInfo({}, {}, frag_shader_module, "main");
+		auto vert_shader_stage_info = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vert_shader_module, "main");
+		auto frag_shader_stage_info = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, frag_shader_module, "main");
 
 		vk::PipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };
 
 		auto vert_input_info = vk::PipelineVertexInputStateCreateInfo();
+		vert_input_info.vertexAttributeDescriptionCount = 0;
+		vert_input_info.vertexAttributeDescriptionCount = 0;
 
 		auto input_asm_info = vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList, VK_FALSE);
 
 		/*A viewport basically describes the region of the framebuffer that the output will be rendered to. This will almost always be (0, 0) to (width, height) and in this tutorial that will also be the case.*/
 
-		auto viewport=vk::Viewport({}, {}, swap_extent.width, swap_extent.height, 0.0, 1.0);
+		auto viewport=vk::Viewport(0.0, 0.0, static_cast<float>(swap_extent.width), static_cast<float>(swap_extent.height), 0.0, 1.0);
+
 
 		auto scissors = vk::Rect2D({ 0,0 }, swap_extent);
 
 		auto viewport_state_info = vk::PipelineViewportStateCreateInfo({}, 1, &viewport, 1, &scissors);
-		auto rasterizer = vk::PipelineRasterizationStateCreateInfo({}, VK_FALSE,VK_FALSE,{},vk::CullModeFlagBits::eBack,vk::FrontFace::eClockwise,VK_FALSE);
+		auto rasterizer = vk::PipelineRasterizationStateCreateInfo({}, VK_FALSE,VK_FALSE,vk::PolygonMode::eFill,vk::CullModeFlagBits::eBack,vk::FrontFace::eClockwise,VK_FALSE);
 		rasterizer.lineWidth = 1.0f;
 
 		auto multi_info = vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, VK_FALSE);
@@ -353,23 +448,30 @@ namespace csl {
 		auto color_blend_attachment = vk::PipelineColorBlendAttachmentState(VK_FALSE);
 		color_blend_attachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
 
+
 		auto color_blending_info = vk::PipelineColorBlendStateCreateInfo({}, VK_FALSE);
+		color_blending_info.logicOpEnable = VK_FALSE;
+		color_blending_info.logicOp = vk::LogicOp::eCopy;
 		color_blending_info.attachmentCount = 1;
 		color_blending_info.pAttachments = &color_blend_attachment;
+
+		color_blending_info.blendConstants = vk::ArrayWrapper1D<float, 4>({ 0.0,0.0,0.0,0.0 });
 		auto pipeline_layout_info = vk::PipelineLayoutCreateInfo();
+
 		if(device_.createPipelineLayout(&pipeline_layout_info,nullptr,&pipeline_layout_)!=vk::Result::eSuccess)
 		{
 			throw std::runtime_error("Could not create pipeline layout");
 		}
 
-		auto pipeline_info = vk::GraphicsPipelineCreateInfo({}, 1, shader_stages, &vert_input_info, &input_asm_info, {}, &viewport_state_info, &rasterizer, &multi_info, {}, &color_blending_info, nullptr, pipeline_layout_, render_pass_, 0);
+		auto pipeline_info = vk::GraphicsPipelineCreateInfo({}, 2, shader_stages, &vert_input_info, &input_asm_info, {}, &viewport_state_info, &rasterizer, &multi_info, {}, &color_blending_info, nullptr, pipeline_layout_, render_pass_, 0);
+		
+	/*	auto res= device_.createGraphicsPipeline(VK_NULL_HANDLE, pipeline_info);*/
 
-		auto res= device_.createGraphicsPipeline(VK_NULL_HANDLE, pipeline_info);
-		if(res.result!=vk::Result::eSuccess)
+		if (device_.createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &graphics_pipeline_) != vk::Result::eSuccess)
 		{
-			throw std::runtime_error("Error in creating pipeline");
+			throw std::runtime_error("Failed to create graphics pipeline");
 		}
-		graphics_pipeline_ = res.value;
+		
 
 
 
@@ -413,6 +515,20 @@ namespace csl {
 
 	}
 
+	void vulkan::create_framebuffers()
+	{
+		framebuffers_.resize(swap_chain_images_views.size());
+
+		for(int i{0};auto frame:framebuffers_)
+		{
+			vk::ImageView attachments[] = {swap_chain_images_views[i]};
+
+			auto framebuffer_info = vk::FramebufferCreateInfo({}, render_pass_, 1, attachments, swap_extent.width, swap_extent.height, 1);
+			framebuffers_[i] = device_.createFramebuffer(framebuffer_info, nullptr);
+			i++;
+		}
+	}
+
 	std::vector<char> vulkan::read_shader(const std::string& filename)
 	{
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -420,6 +536,7 @@ namespace csl {
 		{
 			throw std::runtime_error("Could not open file!");
 		}
+		
 		auto file_size = file.tellg();
 		std::vector<char> buffer(file_size);
 
@@ -480,6 +597,11 @@ namespace csl {
 
 	void csl::vulkan::main_loop()
 	{
+		while(!glvk_.window_should_close())
+		{
+			glvk_.poll_events();
+			draw_frame();
+		}
 
 	}
 }
