@@ -114,20 +114,7 @@ namespace csl
 		
 
 	}
-	class PipelineBuilder
-	{
-		std::vector<vk::PipelineShaderStageCreateInfo> _shader_stages;
-		vk::PipelineVertexInputStateCreateInfo _vertex_input_state_create_info;
-		vk::PipelineInputAssemblyStateCreateInfo _input_assembly_state_create_info;
 
-		vk::Viewport _viewport;
-		vk::Rect2D _scissor;
-		vk::PipelineRasterizationStateCreateInfo _rasterization_state_create_info;
-		vk::PipelineColorBlendAttachmentState _color_blend_attachment_state;
-		vk::PipelineMultisampleStateCreateInfo _multisample_state_create_info;
-		vk::PipelineLayout _pipeline_layout;
-		PipelineBuilder(vk::Device device, vk::RenderPass pass);
-	};
 
 
 

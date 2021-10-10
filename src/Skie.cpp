@@ -51,8 +51,26 @@ void Skie::draw() {
 
 }
 
-PipelineBuilder::PipelineBuilder(vk::Device device, vk::RenderPass pass) {
-	
+PipelineBuilder::PipelineBuilder() {
+	//_shader_stages = {};
+	//_scissor = vk::Rect2D{};
+	//_viewport = vk::Viewport{};
+	//_rasterization_state_create_info = vk::PipelineRasterizationStateCreateInfo{};
+	//_color_blend_attachment_states = {};
+	//_multisample_state_create_info = vk::PipelineMultisampleStateCreateInfo{};
+	//_pipeline_layout = vk::PipelineLayout{};
+}
+
+csl::PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::Device device, vk::RenderPass pass) {
+	auto viewport_state = vk::PipelineViewportStateCreateInfo({}, 1, &_viewport, 1, &_scissor);
+
+	auto pcbscio = vk::PipelineColorBlendStateCreateInfo({}, false, vk::LogicOp::eCopy, _color_blend_attachment_states);
+
+	auto gpcio = vk::GraphicsPipelineCreateInfo({}, _shader_stages, &_vertex_input_state_create_info, &_input_assembly_state_create_info, {}, &viewport_state, &_rasterization_state_create_info, &_multisample_state_create_info, {}, &pcbscio, {}, _pipeline_layout, pass, 0);
+	vkb::Instance in;
+	 Result r{ _pipeline_layout,device.createGraphicsPipeline(VK_NULL_HANDLE,gpcio).value };
+	 return r;
+
 }
 
 
