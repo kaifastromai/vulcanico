@@ -27,12 +27,18 @@ namespace csl {
 	{
 		init_vulkan();
 	}
+
+	void vulkan::run()
+	{
+		main_loop();
+	}
+
 	csl::vulkan::~vulkan()
 	{
 		device_.destroySemaphore(smph_image_available_);
 		device_.destroySemaphore(smph_render_finished_);
 		device_.destroyCommandPool(command_pool_);
-		for(auto f:framebuffers_)
+		for (auto f : framebuffers_)
 		{
 			device_.destroyFramebuffer(f);
 		}
@@ -40,7 +46,7 @@ namespace csl {
 		device_.destroyPipelineLayout(pipeline_layout_);
 
 		device_.destroyRenderPass(render_pass_);
-		for(auto &image_view: swap_chain_images_views)
+		for (auto& image_view : swap_chain_images_views)
 		{
 			device_.destroyImageView(image_view, nullptr);
 		}
@@ -73,10 +79,10 @@ namespace csl {
 		//Assumes this succeeds!
 		command_buffers_ = device_.allocateCommandBuffers(command_info);
 
-		for(size_t i=0;i<command_buffers_.size();i++)
+		for (size_t i = 0; i < command_buffers_.size(); i++)
 		{
 			auto begin_info = vk::CommandBufferBeginInfo();
-			if(command_buffers_[i].begin(&begin_info)!=vk::Result::eSuccess)
+			if (command_buffers_[i].begin(&begin_info) != vk::Result::eSuccess)
 			{
 				throw std::runtime_error("Failed to begin recording command buffer");
 			}
@@ -84,13 +90,14 @@ namespace csl {
 			auto render_pass_info = vk::RenderPassBeginInfo(render_pass_, framebuffers_[i]);
 			render_pass_info.renderArea = vk::Rect2D{ {0,0},swap_extent };
 
-			vk::ClearValue clear_color{ {{0.0,0,1,0}} };
+			auto clear_color = vk::ClearValue();
+			clear_color.color = vk::ClearColorValue(std::array<float, 4>( {1.0,0.0,0.0,1.0}));
 
 			render_pass_info.clearValueCount = 1;
 			render_pass_info.pClearValues = &clear_color;
 			command_buffers_[i].beginRenderPass(render_pass_info, vk::SubpassContents::eInline);
 
-			command_buffers_[i].bindPipeline(vk::PipelineBindPoint::eGraphics,graphics_pipeline_);
+			command_buffers_[i].bindPipeline(vk::PipelineBindPoint::eGraphics, graphics_pipeline_);
 			command_buffers_[i].draw(3, 1, 0, 0);
 
 			command_buffers_[i].end();
@@ -133,7 +140,7 @@ namespace csl {
 		info = vk::DebugUtilsMessengerCreateInfoEXT({}, severity_flags, message_flags
 			, &debug_callback);
 	};
-	
+
 	void csl::vulkan::create_instance()
 	{
 		if (enable_validation_layers && !check_validation_layer())
@@ -149,19 +156,20 @@ namespace csl {
 
 
 		auto debug_create_info = vk::DebugUtilsMessengerCreateInfoEXT();
-		if(enable_validation_layers)
+		if (enable_validation_layers)
 		{
 			instance_create_info.enabledLayerCount = validation_layers.size();
 			instance_create_info.ppEnabledLayerNames = validation_layers.data();
 
 			populate_debug_messenger_info(debug_create_info);
 			instance_create_info.pNext = &debug_create_info;
-		}else
+		}
+		else
 		{
 			instance_create_info.enabledLayerCount = 0;
 			instance_create_info.pNext = nullptr;
 		}
-		
+
 
 		instance_ = vk::createInstance(instance_create_info);
 	}
@@ -298,14 +306,46 @@ namespace csl {
 			}
 			if (indices.b_complete()) break;
 			i++;
-			
+
 		}
 		return indices;
 	}
 
 	void vulkan::draw_frame()
 	{
-		
+		uint32_t image_index = device_.acquireNextImageKHR(swap_chain_, UINT32_MAX, smph_image_available_, VK_NULL_HANDLE).value;
+
+		auto submit_info = vk::SubmitInfo();
+
+		std::array wait_smph = { smph_image_available_ };
+		submit_info.waitSemaphoreCount = 1;
+		submit_info.pWaitSemaphores = wait_smph.data();
+		std::array wait_stages = { vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput) };
+		submit_info.pWaitDstStageMask = wait_stages.data();
+		submit_info.commandBufferCount = 1;
+		submit_info.pCommandBuffers = &command_buffers_[image_index];
+
+		std::array signal_smph = {smph_render_finished_};
+		submit_info.signalSemaphoreCount = 1;
+		submit_info.pSignalSemaphores = signal_smph.data();
+		if (graphics_queue_.submit(1, &submit_info, VK_NULL_HANDLE) != vk::Result::eSuccess)
+		{
+			throw std::runtime_error("Failed to submit draw command to buffer");
+
+		}
+		auto present_info = vk::PresentInfoKHR(1, signal_smph.data());
+
+		std::array swapchains = { swap_chain_ };
+		present_info.swapchainCount = 1;
+		present_info.pSwapchains = swapchains.data();
+		present_info.pImageIndices = &image_index;
+
+		if (present_queue_.presentKHR(&present_info) != vk::Result::eSuccess)
+		{
+			throw std::runtime_error("Failted to present");
+		}
+
+
 	}
 
 	vk::SurfaceFormatKHR csl::vulkan::choose_swap_surface_format(const std::vector<vk::SurfaceFormatKHR>& formats)
@@ -335,18 +375,19 @@ namespace csl {
 
 	vk::Extent2D vulkan::choose_swap_extent(const vk::SurfaceCapabilitiesKHR& capabilities)
 	{
-		if(capabilities.currentExtent.width!=UINT32_MAX)
+		if (capabilities.currentExtent.width != UINT32_MAX)
 		{
 			return capabilities.currentExtent;
-		}else
+		}
+		else
 		{
 			auto actual_extent = glvk_.get_framebuffer_size();
 			actual_extent.width = std::clamp(actual_extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
 
 			actual_extent.height = std::clamp(actual_extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-            
+
 			return actual_extent;
-          
+
 		}
 	}
 
@@ -363,14 +404,15 @@ namespace csl {
 		auto swapchain_info = vk::SwapchainCreateInfoKHR({}, surface_, image_count, surface_format.format, surface_format.colorSpace, swap_extent, 1, vk::ImageUsageFlagBits::eColorAttachment);
 
 		auto indices = find_queue_families(physical_device_);
-		uint32_t queue_family_indices[] = {indices.graphics_family.value(),indices.present_family.has_value()};
+		uint32_t queue_family_indices[] = { indices.graphics_family.value(),indices.present_family.has_value() };
 
-		if(indices.graphics_family!=indices.present_family)
+		if (indices.graphics_family != indices.present_family)
 		{
 			swapchain_info.imageSharingMode = vk::SharingMode::eConcurrent;
 			swapchain_info.queueFamilyIndexCount = 2;
 			swapchain_info.pQueueFamilyIndices = queue_family_indices;
-		}else
+		}
+		else
 		{
 			swapchain_info.imageSharingMode = vk::SharingMode::eExclusive;
 			swapchain_info.queueFamilyIndexCount = 1;
@@ -400,10 +442,10 @@ namespace csl {
 				return i == 0;
 			});
 
-		for(size_t i=0;i<swap_chain_images.size();i++)
+		for (size_t i = 0; i < swap_chain_images.size(); i++)
 		{
 			auto image_view_info = vk::ImageViewCreateInfo({}, swap_chain_images[i], vk::ImageViewType::e2D, swap_image_format, vk::ComponentMapping(), vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
-			if(device_.createImageView(&image_view_info, nullptr, &swap_chain_images_views[i])!=vk::Result::eSuccess)
+			if (device_.createImageView(&image_view_info, nullptr, &swap_chain_images_views[i]) != vk::Result::eSuccess)
 			{
 				throw std::runtime_error("Could not create image views");
 			}
@@ -434,13 +476,13 @@ namespace csl {
 
 		/*A viewport basically describes the region of the framebuffer that the output will be rendered to. This will almost always be (0, 0) to (width, height) and in this tutorial that will also be the case.*/
 
-		auto viewport=vk::Viewport(0.0, 0.0, static_cast<float>(swap_extent.width), static_cast<float>(swap_extent.height), 0.0, 1.0);
+		auto viewport = vk::Viewport(0.0, 0.0, static_cast<float>(swap_extent.width), static_cast<float>(swap_extent.height), 0.0, 1.0);
 
 
 		auto scissors = vk::Rect2D({ 0,0 }, swap_extent);
 
 		auto viewport_state_info = vk::PipelineViewportStateCreateInfo({}, 1, &viewport, 1, &scissors);
-		auto rasterizer = vk::PipelineRasterizationStateCreateInfo({}, VK_FALSE,VK_FALSE,vk::PolygonMode::eFill,vk::CullModeFlagBits::eBack,vk::FrontFace::eClockwise,VK_FALSE);
+		auto rasterizer = vk::PipelineRasterizationStateCreateInfo({}, VK_FALSE, VK_FALSE, vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack, vk::FrontFace::eClockwise, VK_FALSE);
 		rasterizer.lineWidth = 1.0f;
 
 		auto multi_info = vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, VK_FALSE);
@@ -458,20 +500,20 @@ namespace csl {
 		color_blending_info.blendConstants = vk::ArrayWrapper1D<float, 4>({ 0.0,0.0,0.0,0.0 });
 		auto pipeline_layout_info = vk::PipelineLayoutCreateInfo();
 
-		if(device_.createPipelineLayout(&pipeline_layout_info,nullptr,&pipeline_layout_)!=vk::Result::eSuccess)
+		if (device_.createPipelineLayout(&pipeline_layout_info, nullptr, &pipeline_layout_) != vk::Result::eSuccess)
 		{
 			throw std::runtime_error("Could not create pipeline layout");
 		}
 
 		auto pipeline_info = vk::GraphicsPipelineCreateInfo({}, 2, shader_stages, &vert_input_info, &input_asm_info, {}, &viewport_state_info, &rasterizer, &multi_info, {}, &color_blending_info, nullptr, pipeline_layout_, render_pass_, 0);
-		
-	/*	auto res= device_.createGraphicsPipeline(VK_NULL_HANDLE, pipeline_info);*/
+
+		/*	auto res= device_.createGraphicsPipeline(VK_NULL_HANDLE, pipeline_info);*/
 
 		if (device_.createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &graphics_pipeline_) != vk::Result::eSuccess)
 		{
 			throw std::runtime_error("Failed to create graphics pipeline");
 		}
-		
+
 
 
 
@@ -483,6 +525,10 @@ namespace csl {
 
 	void vulkan::create_render_pass()
 	{
+
+		vk::SubpassDependency dependency(VK_SUBPASS_EXTERNAL, 0, vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::AccessFlags(0), vk::AccessFlagBits::eColorAttachmentWrite);
+
+
 		vk::AttachmentDescription color_attachment{};
 		color_attachment.format = swap_image_format;
 		color_attachment.samples = vk::SampleCountFlagBits::e1;
@@ -493,11 +539,14 @@ namespace csl {
 		color_attachment.initialLayout = vk::ImageLayout::eUndefined;
 		color_attachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
 
-		vk::AttachmentReference color_attachment_ref({}, vk::ImageLayout::eUndefined);
+		vk::AttachmentReference color_attachment_ref({}, vk::ImageLayout::eColorAttachmentOptimal);
+		color_attachment_ref.attachment = 0;
 		auto subpass = vk::SubpassDescription({}, vk::PipelineBindPoint::eGraphics, 1, &color_attachment_ref);
 
 		auto render_pass_info = vk::RenderPassCreateInfo({}, 1, &color_attachment, 1, &subpass);
-		if(device_.createRenderPass(&render_pass_info,nullptr,&render_pass_)!=vk::Result::eSuccess)
+		render_pass_info.dependencyCount = 1;
+		render_pass_info.pDependencies = &dependency;
+		if (device_.createRenderPass(&render_pass_info, nullptr, &render_pass_) != vk::Result::eSuccess)
 		{
 			throw std::runtime_error("Failed to create render pass");
 		}
@@ -510,7 +559,7 @@ namespace csl {
 	{
 		auto shader_create_info = vk::ShaderModuleCreateInfo({}, code.size(), reinterpret_cast<const uint32_t*>(code.data()));
 
-		auto shader_module= device_.createShaderModule(shader_create_info, nullptr);
+		auto shader_module = device_.createShaderModule(shader_create_info, nullptr);
 		return shader_module;
 
 	}
@@ -519,9 +568,9 @@ namespace csl {
 	{
 		framebuffers_.resize(swap_chain_images_views.size());
 
-		for(int i{0};auto frame:framebuffers_)
+		for (int i{ 0 }; auto frame:framebuffers_)
 		{
-			vk::ImageView attachments[] = {swap_chain_images_views[i]};
+			vk::ImageView attachments[] = { swap_chain_images_views[i] };
 
 			auto framebuffer_info = vk::FramebufferCreateInfo({}, render_pass_, 1, attachments, swap_extent.width, swap_extent.height, 1);
 			framebuffers_[i] = device_.createFramebuffer(framebuffer_info, nullptr);
@@ -532,11 +581,11 @@ namespace csl {
 	std::vector<char> vulkan::read_shader(const std::string& filename)
 	{
 		std::ifstream file(filename, std::ios::ate | std::ios::binary);
-		if(!file.is_open())
+		if (!file.is_open())
 		{
 			throw std::runtime_error("Could not open file!");
 		}
-		
+
 		auto file_size = file.tellg();
 		std::vector<char> buffer(file_size);
 
@@ -597,7 +646,7 @@ namespace csl {
 
 	void csl::vulkan::main_loop()
 	{
-		while(!glvk_.window_should_close())
+		while (!glvk_.window_should_close())
 		{
 			glvk_.poll_events();
 			draw_frame();

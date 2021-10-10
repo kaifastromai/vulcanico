@@ -159,7 +159,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="vulcanico.cpp" />
+    <ClCompile Include="vulcanico.hpp" />
     <ClCompile Include="vulkanhp.cpp" />
   </ItemGroup>
   <ItemGroup>

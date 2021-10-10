@@ -5,8 +5,8 @@
 #include <vector>
 namespace csl
 {
-	const uint32_t WIDTH = 800;
-	const uint32_t HEIGHT = 600;
+	const uint32_t WIDTH = 1200;
+	const uint32_t HEIGHT = 1200;
 	class glvk
 	{
 	public:

@@ -45,7 +45,6 @@ class vulkan {
   VkSurfaceKHR surface_;
   vk::Queue present_queue_;
   vk::SwapchainKHR swap_chain_;
-  int thisIsCool;
   std::vector<vk::Image> swap_chain_images;
   vk::Extent2D swap_extent;
   vk::Format swap_image_format;
