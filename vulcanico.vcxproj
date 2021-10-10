@@ -159,12 +159,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="vulcanico.hpp" />
-    <ClCompile Include="vulkanhp.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="vkutils.h" />
-    <ClInclude Include="vulkanhp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

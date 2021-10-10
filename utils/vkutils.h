@@ -3,6 +3,7 @@
 #include <string>
 #include "GLFW/glfw3.h"
 #include <vector>
+#include <vulkan/vulkan_raii.hpp>
 namespace csl
 {
 	const uint32_t WIDTH = 1200;
@@ -73,6 +74,7 @@ namespace csl
 			int width, height;
 			glfwGetFramebufferSize(window, &width, &height);
 			return vk::Extent2D(width, height);
+			
 		}
 	};
 }
