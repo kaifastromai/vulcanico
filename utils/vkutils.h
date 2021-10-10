@@ -1,35 +1,37 @@
 #pragma once
 #define GLFW_INCLUDE_NONE
+#include <filesystem>
+#include <fstream>
 #include <string>
+#include <vulkan/vulkan_raii.hpp>
 #include "GLFW/glfw3.h"
 #include <vector>
-#include <vulkan/vulkan_raii.hpp>
 namespace csl
 {
-	const uint32_t WIDTH = 1200;
-	const uint32_t HEIGHT = 1200;
-	class glvk
+	constexpr uint32_t kWidth = 1200;
+	constexpr uint32_t kHeight = 1200;
+	class Glvk
 	{
 	public:
-		glvk(uint32_t width, uint32_t height, const std::string title)
+		Glvk(const uint32_t& width, const uint32_t& height, const std::string& title)
 		{
 			glfwInit();
-			init_window(width, height,title);
+			init_window(width, height, title);
 			get_glfw_extensions_();
 		}
-	~glvk()
+		~Glvk()
 		{
-		glfwDestroyWindow(window);
-		glfwTerminate();
+			glfwDestroyWindow(window);
+			glfwTerminate();
 		}
 	private:
-		GLFWwindow* window;
-		 std::vector<const char*> glfw_extensions_;
+		GLFWwindow* window{};
+		std::vector<const char*> glfw_extensions_;
 
 
 
 	public:
-		void init_window(uint32_t width, uint32_t height,const std::string title)
+		void init_window(uint32_t width, uint32_t height, const std::string title)
 		{
 			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 			glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -62,9 +64,9 @@ namespace csl
 			return glfw_extensions_;
 		}
 
-		void create_surface(vk::Instance instance, VkSurfaceKHR *surface)
+		void create_surface(vk::Instance instance, VkSurfaceKHR* surface)
 		{
-			if(glfwCreateWindowSurface(instance,window,nullptr,surface)!=VK_SUCCESS)
+			if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS)
 			{
 				throw std::runtime_error("Failed to create window surface!");
 			}
@@ -74,7 +76,21 @@ namespace csl
 			int width, height;
 			glfwGetFramebufferSize(window, &width, &height);
 			return vk::Extent2D(width, height);
-			
+
 		}
 	};
+
+	std::vector<char> read_shader(const std::string& path) {
+		std::ifstream file(path,std::ios::binary);
+		if(!file.is_open())
+		{
+		
+			std::runtime_error("File could not be opened");
+		}
+		std::filesystem::path p{ path };
+		auto size=std::filesystem::file_size(p);
+		std::vector<char> buf(size);
+		file.read(buf.data(), size);
+
+	}
 }

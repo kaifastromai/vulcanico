@@ -159,6 +159,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Skie.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Skie.h" />
+    <ClInclude Include="utils\vkutils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
