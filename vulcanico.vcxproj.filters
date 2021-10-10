@@ -15,10 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Skie.cpp">
+    <ClCompile Include="src\Skie.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="vk-bootstrap\src\VkBootstrap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -26,7 +29,13 @@
     <ClInclude Include="utils\vkutils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Skie.h">
+    <ClInclude Include="src\Skie.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vk-bootstrap\src\VkBootstrap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vk-bootstrap\src\VkBootstrapDispatch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

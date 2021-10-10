@@ -2,10 +2,25 @@
 #define GLFW_INCLUDE_NONE
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <string>
-#include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan.hpp>
 #include "GLFW/glfw3.h"
 #include <vector>
+
+#ifndef NDEBUG
+constexpr bool kDebug = true;
+#elif
+constexpr bool kDebug = false;
+#endif
+
+inline void SkCheck(vk::Result r)  {
+	if(r!=vk::Result::eSuccess)
+	{
+		
+		throw vk::make_error_code(r);
+	}
+}
 namespace csl
 {
 	constexpr uint32_t kWidth = 1200;
@@ -24,6 +39,7 @@ namespace csl
 			glfwDestroyWindow(window);
 			glfwTerminate();
 		}
+
 	private:
 		GLFWwindow* window{};
 		std::vector<const char*> glfw_extensions_;
@@ -58,11 +74,8 @@ namespace csl
 		{
 			glfwPollEvents();
 		}
-	public:
-		std::vector<const char*> get_extensions() const
-		{
-			return glfw_extensions_;
-		}
+
+		
 
 		void create_surface(vk::Instance instance, VkSurfaceKHR* surface)
 		{
@@ -80,17 +93,42 @@ namespace csl
 		}
 	};
 
-	std::vector<char> read_shader(const std::string& path) {
+	inline std::vector<char> read_shader(const std::string& path) {
 		std::ifstream file(path,std::ios::binary);
 		if(!file.is_open())
 		{
 		
-			std::runtime_error("File could not be opened");
+			throw std::runtime_error("File could not be opened");
 		}
+
 		std::filesystem::path p{ path };
 		auto size=std::filesystem::file_size(p);
 		std::vector<char> buf(size);
 		file.read(buf.data(), size);
+		if(kDebug)
+		{
+			std::cout << "Successfully load file" << std::endl;
+		}
+		return buf;
+
+		
 
 	}
+	class PipelineBuilder
+	{
+		std::vector<vk::PipelineShaderStageCreateInfo> _shader_stages;
+		vk::PipelineVertexInputStateCreateInfo _vertex_input_state_create_info;
+		vk::PipelineInputAssemblyStateCreateInfo _input_assembly_state_create_info;
+
+		vk::Viewport _viewport;
+		vk::Rect2D _scissor;
+		vk::PipelineRasterizationStateCreateInfo _rasterization_state_create_info;
+		vk::PipelineColorBlendAttachmentState _color_blend_attachment_state;
+		vk::PipelineMultisampleStateCreateInfo _multisample_state_create_info;
+		vk::PipelineLayout _pipeline_layout;
+		PipelineBuilder(vk::Device device, vk::RenderPass pass);
+	};
+
+
+
 }
