@@ -25,6 +25,7 @@ namespace csl {
 
 		void init_sync();
 		void init_pipelines();
+		
 
 
 		//private member variables
@@ -46,8 +47,9 @@ namespace csl {
 		vk::CommandBuffer _main_command_buffer;
 		vk::RenderPass _renderpass;
 		std::vector<vk::Framebuffer> _framebuffers;
-		vk::PipelineLayout _pipeline_layout;
+		vk::PipelineLayout _ppln_lyt_triangle;
 
+		vk::Pipeline _ppln_triangle;
 		vk::Semaphore _smph_present, _smph_render;
 		vk::Fence _fnce_render;
 		
@@ -76,9 +78,10 @@ namespace csl {
 		std::vector<vk::PipelineColorBlendAttachmentState> _color_blend_attachment_states;
 		vk::PipelineMultisampleStateCreateInfo _multisample_state_create_info;
 		vk::PipelineLayout _pipeline_layout;
-		PipelineBuilder();
+
 	
 	public:
+		PipelineBuilder();
 		Result build_pipeline(vk::Device device, vk::RenderPass pass);
 
 		 PipelineBuilder & set_shader_stages(const std::vector<vk::PipelineShaderStageCreateInfo> &stages) {

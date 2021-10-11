@@ -23,8 +23,8 @@ inline void SkCheck(vk::Result r)  {
 }
 namespace csl
 {
-	constexpr uint32_t kWidth = 1200;
-	constexpr uint32_t kHeight = 1200;
+	constexpr uint32_t kWidth = 3240;
+	constexpr uint32_t kHeight = 2160;
 	class Glvk
 	{
 	public:
@@ -51,6 +51,7 @@ namespace csl
 		{
 			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 			glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+			glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 			window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
 		}
 
@@ -74,7 +75,12 @@ namespace csl
 		{
 			glfwPollEvents();
 		}
-
+		template<class T>
+		struct Extent2d
+		{
+			T width;
+			T height;
+		};
 		
 
 		void create_surface(vk::Instance instance, VkSurfaceKHR* surface)
@@ -91,7 +97,18 @@ namespace csl
 			return vk::Extent2D(width, height);
 
 		}
+
+		Extent2d<float> content_scale() {
+			float x;
+			float y;
+			glfwGetWindowContentScale(window, &x, &y);
+			return Extent2d{ x, y };
+			
+		}
+	
+
 	};
+
 
 	inline std::vector<char> read_shader(const std::string& path) {
 		std::ifstream file(path,std::ios::binary);
@@ -111,10 +128,10 @@ namespace csl
 		}
 		return buf;
 
+
 		
 
 	}
-
 
 
 

@@ -4,8 +4,10 @@
 using namespace csl;
 Skie::Skie() {
 
-
 	_glvk =new Glvk(kWidth, kHeight,"Skie");
+
+	std::cout <<"Content scale "<< _glvk->content_scale().width << std::endl;
+	
 	init_vulkan();
 	init_swapchain();
 	init_commands();
@@ -34,9 +36,14 @@ void Skie::draw() {
 	cmd.begin(vk::CommandBufferBeginInfo({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit }));
 
 	vk::ClearValue cv;
-	cv.color = vk::ClearColorValue( std::array<float,4>{1.0,0.0,0.0,1.0});
-	vk::RenderPassBeginInfo rpci{ _renderpass,_framebuffers[swapchain_image_indx],{{0,0},_glvk->get_framebuffer_size()},1,&cv };
+	cv.color = vk::ClearColorValue( std::array<float,4>{(float)(1-sin(_frame_number/120.0))/2.0f, 0.0, 0.0, 1.0});
+	auto extent = _glvk->get_framebuffer_size();
+	extent.height /= 2;
+	extent.width /= 2;
+	vk::RenderPassBeginInfo rpci{ _renderpass,_framebuffers[swapchain_image_indx],{{20,20},extent},1,&cv };
 	cmd.beginRenderPass(rpci,vk::SubpassContents::eInline);
+	//cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, _ppln_triangle);
+	//cmd.draw(3, 1, 0, 0);
 	cmd.endRenderPass();
 	cmd.end();
 	auto wait_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -67,8 +74,7 @@ csl::PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::Device device, 
 	auto pcbscio = vk::PipelineColorBlendStateCreateInfo({}, false, vk::LogicOp::eCopy, _color_blend_attachment_states);
 
 	auto gpcio = vk::GraphicsPipelineCreateInfo({}, _shader_stages, &_vertex_input_state_create_info, &_input_assembly_state_create_info, {}, &viewport_state, &_rasterization_state_create_info, &_multisample_state_create_info, {}, &pcbscio, {}, _pipeline_layout, pass, 0);
-	vkb::Instance in;
-	 Result r{ _pipeline_layout,device.createGraphicsPipeline(VK_NULL_HANDLE,gpcio).value };
+	Result r{ _pipeline_layout,device.createGraphicsPipeline(VK_NULL_HANDLE,gpcio).value };
 	 return r;
 
 }
@@ -77,7 +83,7 @@ csl::PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::Device device, 
 void Skie::init_swapchain() {
 	vkb::SwapchainBuilder swapchain_builder{ _gpu,_device,_surface };
 
-	auto vkb_swapchain = swapchain_builder.use_default_format_selection().set_desired_present_mode(static_cast<VkPresentModeKHR>(vk::PresentModeKHR::eFifo)).set_desired_extent(kWidth, kHeight).build();
+	auto vkb_swapchain = swapchain_builder.use_default_format_selection().set_desired_present_mode(static_cast<VkPresentModeKHR>(vk::PresentModeKHR::eFifo)).set_desired_extent(_glvk->get_framebuffer_size().width, _glvk->get_framebuffer_size().height).build();
 
 	_swapchain = vkb_swapchain.value();
 	_swapchain_image_views = vkb_swapchain->get_image_views().value();
@@ -150,14 +156,14 @@ void Skie::init_framebuffers() {
 	fbi.layers = 1;
 	fbi.attachmentCount = 1;
 
+	auto fb_info = vk::FramebufferCreateInfo({}, _renderpass, 1, {}, kWidth, kHeight, 1);
 	_framebuffers = std::vector<vk::Framebuffer>(_swapchain_images.size());
 	for(int i{0};auto fb: _framebuffers)
 	{
+		auto iv=vk::ImageView(_swapchain_image_views[i]);
 
-		fbi.pAttachments = &_swapchain_image_views[i];
-		_framebuffers[i] = _device.createFramebuffer(fbi, nullptr);
-
-
+		fb_info.pAttachments = &iv;
+		_framebuffers[i] = _device.createFramebuffer(fb_info, nullptr);
 		i++;
 	}
 }
@@ -171,8 +177,27 @@ void Skie::init_sync() {
 }
 
 void Skie::init_pipelines() {
-	auto vert_shader_module = load_shader_module("./shaders/shader.vert.spv");
-	auto frag_shader_module = load_shader_module("./shaders/shader.frag.spv");
+	auto vert_shader_module = load_shader_module("./shaders/vert.spv");
+	auto frag_shader_module = load_shader_module("./shaders/frag.spv");
+	PipelineBuilder pipeline_builder{};
+	pipeline_builder.
+		set_pipeline_layout(_device.createPipelineLayout(vk::PipelineLayoutCreateInfo())).
+		set_shader_stages({ vk::PipelineShaderStageCreateInfo({},vk::ShaderStageFlagBits::eVertex,vert_shader_module,"main"),
+			vk::PipelineShaderStageCreateInfo({},vk::ShaderStageFlagBits::eFragment,frag_shader_module,"main")
+			}).
+		set_vertex_input_state(vk::PipelineVertexInputStateCreateInfo()).
+		set_input_asm(vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList)).
+		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false,{},{},{},1.0f)).
+		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
+
+		set_viewport({ 0,0,static_cast<float>(_glvk->get_framebuffer_size().width),static_cast<float>(_glvk->get_framebuffer_size().height) }).
+		set_scissor({ {0,0},_glvk->get_framebuffer_size() });
+
+	auto color_blend_bits = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+	pipeline_builder.set_color_blend({ vk::PipelineColorBlendAttachmentState(false, {}, {}, {}, {}, {}, {}, color_blend_bits) });
+	auto result = pipeline_builder.build_pipeline(_device, _renderpass);
+	_ppln_lyt_triangle = result._pipeline_layout;
+	_ppln_triangle = result._pipeline;
 
 }
 
