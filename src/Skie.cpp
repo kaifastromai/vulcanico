@@ -1,7 +1,7 @@
 #include "Skie.h"
 #include "../vk-bootstrap/src/VkBootstrap.h"
 
-using namespace csl;
+using namespace sk;
 Skie::Skie() {
 
 	_glvk =new Glvk(kWidth, kHeight,"Skie");
@@ -38,12 +38,11 @@ void Skie::draw() {
 	vk::ClearValue cv;
 	cv.color = vk::ClearColorValue( std::array<float,4>{(float)(1-sin(_frame_number/120.0))/2.0f, 0.0, 0.0, 1.0});
 	auto extent = _glvk->get_framebuffer_size();
-	extent.height /= 2;
-	extent.width /= 2;
-	vk::RenderPassBeginInfo rpci{ _renderpass,_framebuffers[swapchain_image_indx],{{20,20},extent},1,&cv };
+	
+	vk::RenderPassBeginInfo rpci{ _renderpass,_framebuffers[swapchain_image_indx],{{0,0},extent},1,&cv };
 	cmd.beginRenderPass(rpci,vk::SubpassContents::eInline);
-	//cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, _ppln_triangle);
-	//cmd.draw(3, 1, 0, 0);
+	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, _ppln_triangle);
+	cmd.draw(3, 1, 0, 0);
 	cmd.endRenderPass();
 	cmd.end();
 	auto wait_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -68,7 +67,7 @@ PipelineBuilder::PipelineBuilder() {
 	//_pipeline_layout = vk::PipelineLayout{};
 }
 
-csl::PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::Device device, vk::RenderPass pass) {
+sk::PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::Device device, vk::RenderPass pass) {
 	auto viewport_state = vk::PipelineViewportStateCreateInfo({}, 1, &_viewport, 1, &_scissor);
 
 	auto pcbscio = vk::PipelineColorBlendStateCreateInfo({}, false, vk::LogicOp::eCopy, _color_blend_attachment_states);
@@ -82,8 +81,11 @@ csl::PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::Device device, 
 
 void Skie::init_swapchain() {
 	vkb::SwapchainBuilder swapchain_builder{ _gpu,_device,_surface };
+	auto flags = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
+	swapchain_builder.set_image_usage_flags(static_cast<VkImageUsageFlags>(flags));
 
-	auto vkb_swapchain = swapchain_builder.use_default_format_selection().set_desired_present_mode(static_cast<VkPresentModeKHR>(vk::PresentModeKHR::eFifo)).set_desired_extent(_glvk->get_framebuffer_size().width, _glvk->get_framebuffer_size().height).build();
+	auto vkb_swapchain = swapchain_builder.use_default_format_selection().set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR).set_desired_extent(_glvk->get_framebuffer_size().width, _glvk->get_framebuffer_size().height).build();
+	
 
 	_swapchain = vkb_swapchain.value();
 	_swapchain_image_views = vkb_swapchain->get_image_views().value();
@@ -99,19 +101,16 @@ void Skie::init_vulkan() {
 		.use_default_debug_messenger()
 
 	.build();
-	if(!inst_ret.has_value())
-	{
-		throw inst_ret.error();
-	}
+
 	_instance = inst_ret.value();
 	_debug_messenger = inst_ret.value().debug_messenger;
 	VkSurfaceKHR t_surface;
 	_glvk->create_surface(_instance, &t_surface);
-	auto ret = _glvk->get_glfw_extensions_();
+	//auto ret = _glvk->get_glfw_extensions_();
 	_surface = vk::SurfaceKHR(t_surface);
 	vkb::PhysicalDeviceSelector selector{ inst_ret.value() };
 	auto physical_device = selector.set_minimum_version(1, 1).set_surface(_surface)
-		.select();
+		.prefer_gpu_device_type().select();
 	vkb::DeviceBuilder device_builder{ physical_device.value() };
 	vkb::Device vkb_device = device_builder.build().value();
 	_device = vkb_device;
@@ -136,7 +135,7 @@ void Skie::init_commands() {
 }
 
 void Skie::init_default_renderpass() {
-	auto ca = vk::AttachmentDescription({},_swapchain_format,vk::SampleCountFlagBits::e1,vk::AttachmentLoadOp::eClear,vk::AttachmentStoreOp::eDontCare,vk::AttachmentLoadOp::eDontCare,vk::AttachmentStoreOp::eDontCare,vk::ImageLayout::eUndefined,vk::ImageLayout::ePresentSrcKHR);
+	auto ca = vk::AttachmentDescription({},_swapchain_format,vk::SampleCountFlagBits::e1,vk::AttachmentLoadOp::eClear,vk::AttachmentStoreOp::eStore,vk::AttachmentLoadOp::eDontCare,vk::AttachmentStoreOp::eDontCare,vk::ImageLayout::eUndefined,vk::ImageLayout::ePresentSrcKHR);
 	auto car = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
 	auto sd = vk::SubpassDescription({}, vk::PipelineBindPoint::eGraphics, 0, {}, 1, &car);
 
@@ -147,14 +146,7 @@ void Skie::init_default_renderpass() {
 
 void Skie::init_framebuffers() {
 
-	VkFramebufferCreateInfo fbi= {};
-	fbi.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	fbi.pNext = nullptr;
-	fbi.renderPass = _renderpass;
-	fbi.width = _glvk->get_framebuffer_size().width;
-	fbi.height = _glvk->get_framebuffer_size().height;
-	fbi.layers = 1;
-	fbi.attachmentCount = 1;
+
 
 	auto fb_info = vk::FramebufferCreateInfo({}, _renderpass, 1, {}, kWidth, kHeight, 1);
 	_framebuffers = std::vector<vk::Framebuffer>(_swapchain_images.size());

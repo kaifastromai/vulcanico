@@ -21,10 +21,10 @@ inline void SkCheck(vk::Result r)  {
 		throw vk::make_error_code(r);
 	}
 }
-namespace csl
+namespace sk
 {
-	constexpr uint32_t kWidth = 3240;
-	constexpr uint32_t kHeight = 2160;
+	constexpr uint32_t kWidth = 1000;
+	constexpr uint32_t kHeight = 1000;
 	class Glvk
 	{
 	public:
@@ -124,7 +124,7 @@ namespace csl
 		file.read(buf.data(), size);
 		if(kDebug)
 		{
-			std::cout << "Successfully load file" << std::endl;
+			std::cout << "Successfully loaded file" << std::endl;
 		}
 		return buf;
 

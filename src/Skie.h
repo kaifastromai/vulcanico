@@ -1,7 +1,7 @@
 #pragma once
 #include "../utils/vkutils.h"
 
-namespace csl {
+namespace sk {
 	class Skie
 	{
 

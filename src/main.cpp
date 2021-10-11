@@ -6,7 +6,7 @@ int main()
 {
 	try {
 
-	auto sk = csl::Skie();
+	auto sk = sk::Skie();
 	sk.run();
 		
 	}catch(std::exception &e)
