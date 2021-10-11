@@ -7,7 +7,7 @@ Skie::Skie() {
 	_glvk =new Glvk(kWidth, kHeight,"Skie");
 
 	std::cout <<"Content scale "<< _glvk->content_scale().width << std::endl;
-	
+	_glvk->set_key_callback(&key_callback);
 	init_vulkan();
 	init_swapchain();
 	init_commands();
@@ -160,6 +160,17 @@ void Skie::init_framebuffers() {
 	}
 }
 
+void Skie::key_callback(GLFWwindow*, int key, int scancode,int action, int mods) {
+	if(key==GLFW_KEY_SPACE)
+	{
+		/*_selected_shader = (_selected_shader + 1) % 2;
+		if(kDebug)
+		{
+			std::cout << "Spacebar pressed" << std::endl;
+		}*/
+	}
+}
+
 void Skie::init_sync() {
 	vk::FenceCreateInfo fci{ vk::FenceCreateFlagBits::eSignaled };
 	_fnce_render = _device.createFence(fci);
@@ -169,8 +180,8 @@ void Skie::init_sync() {
 }
 
 void Skie::init_pipelines() {
-	auto vert_shader_module = load_shader_module("./shaders/vert.spv");
-	auto frag_shader_module = load_shader_module("./shaders/frag.spv");
+	auto vert_shader_module = load_shader_module("./shaders/build/vert.spv");
+	auto frag_shader_module = load_shader_module("./shaders/build/frag.spv");
 	PipelineBuilder pipeline_builder{};
 	pipeline_builder.
 		set_pipeline_layout(_device.createPipelineLayout(vk::PipelineLayoutCreateInfo())).

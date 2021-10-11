@@ -2,6 +2,10 @@
 #include "../utils/vkutils.h"
 
 namespace sk {
+	namespace events
+	{
+		
+	}
 	class Skie
 	{
 
@@ -22,9 +26,12 @@ namespace sk {
 		void init_commands();
 		void init_default_renderpass();
 		void init_framebuffers();
+		//temp
+		static void key_callback(GLFWwindow*, int,int,int,int);
 
 		void init_sync();
 		void init_pipelines();
+		uint32_t _selected_shader{ 0 };
 		
 
 

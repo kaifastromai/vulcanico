@@ -105,6 +105,9 @@ namespace sk
 			return Extent2d{ x, y };
 			
 		}
+		void set_key_callback(GLFWkeyfun callback) {
+			glfwSetKeyCallback(window, callback);
+		}
 	
 
 	};
