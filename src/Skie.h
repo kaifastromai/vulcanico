@@ -1,7 +1,31 @@
 #pragma once
-#include "../utils/vkutils.h"
+#include <deque>
 
+#include "../utils/vkutils.h"
+#include <vulkan/vulkan_raii.hpp>
+#include <functional>
 namespace sk {
+
+	struct DeletionQueue
+	{
+		std::deque<std::function<void()>> deletors;
+		void push_function(std::function<void()>&& function) {
+			deletors.push_back(function);
+		}
+		void flush() {
+			std::ranges::for_each(deletors, [](const std::function<void()> f) {
+				f();
+				});
+			deletors.clear();
+		}
+	};
+
+	inline void SkCheck(vk::Result r) {
+		if (r != vk::Result::eSuccess)
+		{
+			throw vk::make_error_code(r);
+		}
+	}
 	namespace events
 	{
 		
@@ -16,11 +40,10 @@ namespace sk {
 		void draw();
 		~Skie();
 
-		//member variables
-	public:
 
 		//private member functions
 	private:
+		vk::raii::Context _vk_ctx;
 		void init_swapchain();
 		void init_vulkan();
 		void init_commands();
@@ -32,36 +55,39 @@ namespace sk {
 		void init_sync();
 		void init_pipelines();
 		uint32_t _selected_shader{ 0 };
+
 		
 
 
 		//private member variables
 	private:
+		DeletionQueue _main_delete_queue;
 		uint64_t _frame_number;
-		vk::Instance _instance;
-		vk::DebugUtilsMessengerEXT _debug_messenger;
-		vk::PhysicalDevice _gpu;
-		vk::Device _device;
-		vk::SurfaceKHR _surface;
-		vk::SwapchainKHR _swapchain;
+		std::unique_ptr<vk::raii::Instance> _instance;
+		std::unique_ptr< vk::raii::DebugUtilsMessengerEXT> _debug_messenger;
+		vk::raii::PhysicalDevice _gpu;
+		vk::raii::Device _device;
+		vk::raii::SurfaceKHR _surface;
+		vk::raii::SwapchainKHR _swapchain;
 		vk::Format _swapchain_format;
 		std::vector<VkImage> _swapchain_images;
 		std::vector<VkImageView> _swapchain_image_views;
 
-		vk::Queue _graphics_queue;
+		vk::raii::Queue _graphics_queue;
 		uint32_t _graphics_queue_family_index;
-		vk::CommandPool _command_pool;
-		vk::CommandBuffer _main_command_buffer;
-		vk::RenderPass _renderpass;
-		std::vector<vk::Framebuffer> _framebuffers;
-		vk::PipelineLayout _ppln_lyt_triangle;
+		vk::raii::CommandPool _command_pool;
+		vk::raii::CommandBuffer _main_command_buffer;
+		vk::raii::RenderPass _renderpass;
+		std::vector<vk::raii::Framebuffer> _framebuffers;
+		vk::raii::PipelineLayout _ppln_lyt_triangle;
 
-		vk::Pipeline _ppln_triangle;
-		vk::Semaphore _smph_present, _smph_render;
-		vk::Fence _fnce_render;
+		vk::raii::Pipeline _ppln_triangle;
+		vk::raii::Pipeline _ppln_red_tri;
+		vk::raii::Semaphore _smph_present, _smph_render;
+		vk::raii::Fence _fnce_render;
 		
 
-		 vk::ShaderModule load_shader_module(const std::string& path);
+		vk::raii::ShaderModule load_shader_module(const std::string& path);
 		
 		Glvk* _glvk;
 
@@ -72,8 +98,8 @@ namespace sk {
 	{
 		struct Result
 		{
-			vk::PipelineLayout _pipeline_layout;
-			vk::Pipeline _pipeline;
+			vk::raii::PipelineLayout _pipeline_layout;
+			vk::raii::Pipeline _pipeline;
 		};
 		std::vector<vk::PipelineShaderStageCreateInfo> _shader_stages;
 		vk::PipelineVertexInputStateCreateInfo _vertex_input_state_create_info;
@@ -84,12 +110,12 @@ namespace sk {
 		vk::PipelineRasterizationStateCreateInfo _rasterization_state_create_info;
 		std::vector<vk::PipelineColorBlendAttachmentState> _color_blend_attachment_states;
 		vk::PipelineMultisampleStateCreateInfo _multisample_state_create_info;
-		vk::PipelineLayout _pipeline_layout;
+		vk::raii::PipelineLayout _pipeline_layout;
 
 	
 	public:
 		PipelineBuilder();
-		Result build_pipeline(vk::Device device, vk::RenderPass pass);
+		Result build_pipeline(vk::raii::Device device, vk::raii::RenderPass pass);
 
 		 PipelineBuilder & set_shader_stages(const std::vector<vk::PipelineShaderStageCreateInfo> &stages) {
 			_shader_stages = stages;
@@ -124,8 +150,8 @@ namespace sk {
 			_multisample_state_create_info = multisample_state;
 			return *this;
 		}
-		PipelineBuilder& set_pipeline_layout(vk::PipelineLayout pipeline_layout) {
-			_pipeline_layout = pipeline_layout;
+		PipelineBuilder& set_pipeline_layout(vk::raii::PipelineLayout &pipeline_layout) {
+			_pipeline_layout = std::move(pipeline_layout);
 			return *this;
 		}
 

@@ -4,9 +4,9 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <vulkan/vulkan.hpp>
 #include "GLFW/glfw3.h"
 #include <vector>
+#include <vulkan/vulkan.hpp>
 
 #ifndef NDEBUG
 constexpr bool kDebug = true;
@@ -14,15 +14,12 @@ constexpr bool kDebug = true;
 constexpr bool kDebug = false;
 #endif
 
-inline void SkCheck(vk::Result r)  {
-	if(r!=vk::Result::eSuccess)
-	{
-		
-		throw vk::make_error_code(r);
-	}
-}
+
 namespace sk
 {
+	//forward declaration
+	class Skie;
+	//Need to account for window size vs. framebuffer size later
 	constexpr uint32_t kWidth = 1000;
 	constexpr uint32_t kHeight = 1000;
 	class Glvk
@@ -105,7 +102,8 @@ namespace sk
 			return Extent2d{ x, y };
 			
 		}
-		void set_key_callback(GLFWkeyfun callback) {
+		void set_key_callback(GLFWkeyfun callback, sk::Skie* ctx) {
+			glfwSetWindowUserPointer(window, ctx);
 			glfwSetKeyCallback(window, callback);
 		}
 	
