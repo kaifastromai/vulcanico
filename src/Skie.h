@@ -1,6 +1,6 @@
 #pragma once
 #include <deque>
-
+#define  VULKAN_HPP_RAII_ENABLE_DEFAULT_CONSTRUCTORS
 #include "../utils/vkutils.h"
 #include <vulkan/vulkan_raii.hpp>
 #include <functional>
@@ -65,26 +65,27 @@ namespace sk {
 		uint64_t _frame_number;
 		std::unique_ptr<vk::raii::Instance> _instance;
 		std::unique_ptr< vk::raii::DebugUtilsMessengerEXT> _debug_messenger;
-		vk::raii::PhysicalDevice _gpu;
-		vk::raii::Device _device;
-		vk::raii::SurfaceKHR _surface;
-		vk::raii::SwapchainKHR _swapchain;
+		std::unique_ptr<vk::raii::PhysicalDevice> _gpu;
+		std::unique_ptr<vk::raii::Device> _device;
+		std::unique_ptr<vk::raii::SurfaceKHR >_surface;
+		std::unique_ptr<vk::raii::SwapchainKHR> _swapchain;
 		vk::Format _swapchain_format;
 		std::vector<VkImage> _swapchain_images;
-		std::vector<VkImageView> _swapchain_image_views;
+		std::vector<vk::raii::ImageView> _swapchain_image_views;
 
-		vk::raii::Queue _graphics_queue;
+		std::unique_ptr<vk::raii::Queue> _graphics_queue;
 		uint32_t _graphics_queue_family_index;
-		vk::raii::CommandPool _command_pool;
-		vk::raii::CommandBuffer _main_command_buffer;
-		vk::raii::RenderPass _renderpass;
-		std::vector<vk::raii::Framebuffer> _framebuffers;
-		vk::raii::PipelineLayout _ppln_lyt_triangle;
+		std::unique_ptr<vk::raii::CommandPool> _command_pool;
+		std::unique_ptr<vk::raii::CommandBuffers> _main_command_buffer;
+		std::unique_ptr<vk::raii::RenderPass> _renderpass;
 
-		vk::raii::Pipeline _ppln_triangle;
-		vk::raii::Pipeline _ppln_red_tri;
-		vk::raii::Semaphore _smph_present, _smph_render;
-		vk::raii::Fence _fnce_render;
+		std::vector<vk::raii::Framebuffer> _framebuffers;
+		std::unique_ptr<vk::raii::PipelineLayout> _ppln_lyt_triangle;
+
+		std::unique_ptr<vk::raii::Pipeline >_ppln_triangle;
+		std::unique_ptr<vk::raii::Pipeline> _ppln_red_tri;
+		std::unique_ptr<vk::raii::Semaphore> _smph_present, _smph_render;
+		std::unique_ptr<vk::raii::Fence> _fnce_render;
 		
 
 		vk::raii::ShaderModule load_shader_module(const std::string& path);
@@ -114,8 +115,8 @@ namespace sk {
 
 	
 	public:
-		PipelineBuilder();
-		Result build_pipeline(vk::raii::Device device, vk::raii::RenderPass pass);
+		PipelineBuilder() = default;
+		Result build_pipeline(vk::raii::Device& device, vk::raii::RenderPass& pass);
 
 		 PipelineBuilder & set_shader_stages(const std::vector<vk::PipelineShaderStageCreateInfo> &stages) {
 			_shader_stages = stages;

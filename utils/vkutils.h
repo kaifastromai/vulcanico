@@ -4,9 +4,11 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vulkan/vulkan.hpp>
 #include "GLFW/glfw3.h"
 #include <vector>
-#include <vulkan/vulkan.hpp>
+#include <ranges>
+
 
 #ifndef NDEBUG
 constexpr bool kDebug = true;
@@ -17,6 +19,23 @@ constexpr bool kDebug = false;
 
 namespace sk
 {
+	//simpler version of vkbootstrap->group of helper function to ease dev
+	namespace vkbs {
+		class InstanceBuilder
+		{
+			vk::Instance _instance;
+			vk::InstanceCreateInfo _instance_flags;
+			vk::ApplicationInfo _app_info;
+			std::vector<const char*> _enabled_extensions;
+			std::vector<char*> get_supported_extensions() {
+				auto supported_extension_props = vk::enumerateInstanceLayerProperties();
+				
+			}
+			
+			
+		};
+		
+	}
 	//forward declaration
 	class Skie;
 	//Need to account for window size vs. framebuffer size later
