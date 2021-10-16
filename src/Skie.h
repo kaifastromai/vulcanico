@@ -1,23 +1,17 @@
 #pragma once
 #include <deque>
 #define  VULKAN_HPP_RAII_ENABLE_DEFAULT_CONSTRUCTORS
-#include "../utils/vkutils.h"
 #include <vulkan/vulkan_raii.hpp>
 #include <functional>
-namespace sk {
+#include "skie_mesh.h"
+#include <glm/glm.hpp>
 
-	struct DeletionQueue
+
+namespace sk {
+	struct MeshPushConstants
 	{
-		std::deque<std::function<void()>> deletors;
-		void push_function(std::function<void()>&& function) {
-			deletors.push_back(function);
-		}
-		void flush() {
-			std::ranges::for_each(deletors, [](const std::function<void()> f) {
-				f();
-				});
-			deletors.clear();
-		}
+		glm::vec4 data;
+		glm::mat4 render_matrix;
 	};
 
 	inline void SkCheck(vk::Result r) {
@@ -43,6 +37,7 @@ namespace sk {
 
 		//private member functions
 	private:
+	
 		vk::raii::Context _vk_ctx;
 		void init_swapchain();
 		void init_vulkan();
@@ -55,13 +50,16 @@ namespace sk {
 		void init_sync();
 		void init_pipelines();
 		uint32_t _selected_shader{ 0 };
+		void load_mesh();
+		void upload_mesh(Mesh &mesh);
+		Mesh _mesh_monkey;
 
 		
 
 
 		//private member variables
 	private:
-		DeletionQueue _main_delete_queue;
+
 		uint64_t _frame_number;
 		std::unique_ptr<vk::raii::Instance> _instance;
 		std::unique_ptr< vk::raii::DebugUtilsMessengerEXT> _debug_messenger;
@@ -72,6 +70,7 @@ namespace sk {
 		vk::Format _swapchain_format;
 		std::vector<VkImage> _swapchain_images;
 		std::vector<vk::raii::ImageView> _swapchain_image_views;
+		
 
 		std::unique_ptr<vk::raii::Queue> _graphics_queue;
 		uint32_t _graphics_queue_family_index;
@@ -81,13 +80,15 @@ namespace sk {
 
 		std::vector<vk::raii::Framebuffer> _framebuffers;
 		std::unique_ptr<vk::raii::PipelineLayout> _ppln_lyt_triangle;
-
+		std::unique_ptr < vk::raii::PipelineLayout > _ppln_lyt_mesh;
 		std::unique_ptr<vk::raii::Pipeline >_ppln_triangle;
 		std::unique_ptr<vk::raii::Pipeline> _ppln_red_tri;
+		std::unique_ptr<vk::raii::Pipeline> _ppln_mesh;
 		std::unique_ptr<vk::raii::Semaphore> _smph_present, _smph_render;
 		std::unique_ptr<vk::raii::Fence> _fnce_render;
-		
 
+		std::unique_ptr<vk::raii::Pipeline> _mesh_pipeline;
+	    Mesh _tri_mesh;
 		vk::raii::ShaderModule load_shader_module(const std::string& path);
 		
 		Glvk* _glvk;

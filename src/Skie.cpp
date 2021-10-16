@@ -1,6 +1,12 @@
 #include "Skie.h"
 #include "../vk-bootstrap/src/VkBootstrap.h"
 #include "ranges"
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+#include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
+#include <glm/ext/matrix_clip_space.hpp> // glm::perspective
+#include <glm/ext/scalar_constants.hpp> // glm::pi
+
 
 using namespace sk;
 Skie::Skie() {
@@ -40,8 +46,24 @@ void Skie::draw() {
 	vk::RenderPassBeginInfo rpci{ **_renderpass,*_framebuffers[swapchain_image_indx],{{0,0},{kWidth,kHeight}},1,&cv };
 	cmd->beginRenderPass(rpci,vk::SubpassContents::eInline);
 
-	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, _selected_shader==0? **_ppln_triangle:**_ppln_red_tri);
-	cmd->draw(3, 1, 0, 0);
+	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, **_mesh_pipeline);
+	vk::DeviceSize offset = 0;
+	cmd->bindVertexBuffers(0, { _mesh_monkey.vertex_buffer->buffer }, {offset});
+
+	glm::vec3 cam_vec = { 0.0f,0.0f,-3.0f };
+	glm::mat4 view = translate(glm::mat4(1.0), cam_vec);
+	glm::mat4 projection = glm::perspective(glm::radians(70.0f), kWidth /(float)kHeight, 1.0f, 200.0f);
+	projection[1][1] *= -1;
+
+	glm::mat4 model = rotate(glm::mat4{ 1.0f }, glm::radians(_frame_number * 0.4f), glm::vec3(0, 1, 0));
+	glm::mat4 mesh_matrix = projection * view * model;
+	MeshPushConstants constants = { {},mesh_matrix };
+	 std::array<MeshPushConstants, 1> pcs{ constants };
+
+	cmd->pushConstants<MeshPushConstants>(**_ppln_lyt_mesh, vk::ShaderStageFlagBits::eVertex, 0, pcs);
+
+
+	cmd->draw(_mesh_monkey.vertices.size(), 1, 0, 0);
 	cmd->endRenderPass();
 	cmd->end();
 	auto wait_stage = vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -59,7 +81,7 @@ void Skie::draw() {
 }
 
 
-sk::PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::raii::Device& device, vk::raii::RenderPass& pass) {
+PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::raii::Device& device, vk::raii::RenderPass& pass) {
 	auto viewport_state = vk::PipelineViewportStateCreateInfo({}, 1, &_viewport, 1, &_scissor);
 
 	auto pcbscio = vk::PipelineColorBlendStateCreateInfo({}, false, vk::LogicOp::eCopy, _color_blend_attachment_states);
@@ -89,16 +111,11 @@ void Skie::init_swapchain() {
 	_swapchain = std::make_unique<vk::raii::SwapchainKHR>(*_device, vkb_swapchain->swapchain);
 	//_swapchain_image_views = vkb_swapchain->get_image_views().value();
 	auto rawivs = vkb_swapchain->get_image_views().value();
-	_swapchain_image_views.resize(rawivs.size());
 	for (int i{ 0 };auto& iv : rawivs)
 	{
-		_swapchain_image_views[i] = vk::raii::ImageView(*_device, iv);
+		_swapchain_image_views.push_back(vk::raii::ImageView(*_device, iv));
 	}
-	std::vector<int> ints{ 1,2,3,4 };
-	auto floats = ints | std::views::transform([](int i) {
-		return (float)i;
-		});
-	
+
 	_swapchain_images = vkb_swapchain->get_images().value();
 	_swapchain_format = vk::Format{ vkb_swapchain->image_format };
 
@@ -138,6 +155,15 @@ void Skie::init_vulkan() {
 	_device =std::make_unique< vk::raii::Device>(*_gpu,vkb_device.device);
 	_graphics_queue = std::make_unique<vk::raii::Queue>(*_device, vkb_device.get_queue(vkb::QueueType::graphics).value());
 	_graphics_queue_family_index = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
+
+	VmaAllocatorCreateInfo allocator_create_info = {};
+	allocator_create_info.physicalDevice = **_gpu;
+	allocator_create_info.device = **_device;
+	allocator_create_info.instance = **_instance;
+	vmaCreateAllocator(&allocator_create_info, &g_vma_allocator);
+
+	load_mesh();
+	
 }
 
 void Skie::init_commands() {
@@ -167,14 +193,16 @@ void Skie::init_framebuffers() {
 
 
 
-	auto fb_info = vk::FramebufferCreateInfo({},* *_renderpass, 1, {}, kWidth, kHeight, 1);
-	_framebuffers = std::vector<vk::raii::Framebuffer>(_swapchain_images.size());
-	for(int i{0};auto &fb: _framebuffers)
+	/**/
+	std::array<vk::ImageView, 1> attachments;
+	
+	for(int i{0};auto const  &iv: _swapchain_image_views)
 	{
-		auto iv=vk::raii::ImageView(std::move(_swapchain_image_views[i]));
+		
+		attachments[0] = *iv;
+		auto fb_info = vk::FramebufferCreateInfo({}, **_renderpass,  {attachments}, kWidth, kHeight, 1);
 
-		fb_info.pAttachments = &*iv;
-		_framebuffers[i] = vk::raii::Framebuffer(*_device, fb_info);
+		_framebuffers.push_back(vk::raii::Framebuffer(*_device, fb_info));
 		i++;
 	}
 }
@@ -200,10 +228,12 @@ void Skie::init_sync() {
 }
 
 void Skie::init_pipelines() {
+
+
 	auto vert_shader_module_tri = load_shader_module("./shaders/build/colored_triangle.vert.spv");
 	auto frag_shader_module_tri = load_shader_module("./shaders/build/colored_triangle.frag.spv");
-	auto vert_shader_module_red = load_shader_module("./shaders/build/vert.spv");
-	auto frag_shader_module_red = load_shader_module("./shaders/build/frag.spv");
+	auto vert_shader_module_mesh = load_shader_module("./shaders/build/tri_shader.vert.spv");
+	auto frag_shader_module_mesh = load_shader_module("./shaders/build/tri_shader.frag.spv");
 	PipelineBuilder ppln_colored_tri{};
 	auto pipeline_layout0 = vk::raii::PipelineLayout(*_device, vk::PipelineLayoutCreateInfo());
 	ppln_colored_tri.
@@ -218,15 +248,20 @@ void Skie::init_pipelines() {
 		set_viewport({ 0,0,static_cast<float>(_glvk->get_framebuffer_size().width),static_cast<float>(_glvk->get_framebuffer_size().height) }).
 		set_scissor({ {0,0},_glvk->get_framebuffer_size() });
 
-	PipelineBuilder ppln_red_tri{};
-	auto pipeline_layout1 = vk::raii::PipelineLayout(*_device, vk::PipelineLayoutCreateInfo());
+	PipelineBuilder ppln_bldr_mesh {};
+	auto push_constants = vk::PushConstantRange();
+	push_constants.offset = 0;
+	push_constants.size = sizeof(MeshPushConstants);
+	push_constants.stageFlags = { vk::ShaderStageFlagBits::eVertex };
 
-	ppln_red_tri.
+	auto pipeline_layout1 = vk::raii::PipelineLayout(*_device, vk::PipelineLayoutCreateInfo({},{},{},1,&push_constants));
+	VertexInputDescription vertex_input_description = Vertex::get_vertex_description();
+	ppln_bldr_mesh .
 		set_pipeline_layout(pipeline_layout1).
-		set_shader_stages({ vk::PipelineShaderStageCreateInfo({},vk::ShaderStageFlagBits::eVertex,*vert_shader_module_red,"main"),
-			vk::PipelineShaderStageCreateInfo({},vk::ShaderStageFlagBits::eFragment,*frag_shader_module_red,"main")
+		set_shader_stages({ vk::PipelineShaderStageCreateInfo({},vk::ShaderStageFlagBits::eVertex,*vert_shader_module_mesh,"main"),
+			vk::PipelineShaderStageCreateInfo({},vk::ShaderStageFlagBits::eFragment,*frag_shader_module_mesh,"main")
 			}).
-		set_vertex_input_state(vk::PipelineVertexInputStateCreateInfo()).
+		set_vertex_input_state(vk::PipelineVertexInputStateCreateInfo({},vertex_input_description.bindings,vertex_input_description.attributes)).
 		set_input_asm(vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList)).
 		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false, {}, {}, {}, 1.0f)).
 		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
@@ -234,15 +269,52 @@ void Skie::init_pipelines() {
 		set_scissor({ {0,0},_glvk->get_framebuffer_size() });
 
 	auto color_blend_bits = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-	ppln_red_tri.set_color_blend({ vk::PipelineColorBlendAttachmentState(false, {}, {}, {}, {}, {}, {}, color_blend_bits) });
+	ppln_bldr_mesh .set_color_blend({ vk::PipelineColorBlendAttachmentState(false, {}, {}, {}, {}, {}, {}, color_blend_bits) });
 	ppln_colored_tri.set_color_blend({ vk::PipelineColorBlendAttachmentState(false, {}, {}, {}, {}, {}, {}, color_blend_bits) });
 
 	auto res_ppln_colored_tri = ppln_colored_tri.build_pipeline(*_device, *_renderpass);
-	auto res_ppln_red_tri = ppln_red_tri.build_pipeline(*_device, *_renderpass);
-
+	auto res_mesh_pipeline = ppln_bldr_mesh .build_pipeline(*_device, *_renderpass);
+	_mesh_pipeline= std::make_unique<vk::raii::Pipeline>(std::move(res_mesh_pipeline._pipeline));
 	_ppln_lyt_triangle = std::make_unique<vk::raii::PipelineLayout>(std::move(res_ppln_colored_tri._pipeline_layout));
 	_ppln_triangle = std::make_unique<vk::raii::Pipeline>(std::move(res_ppln_colored_tri._pipeline));
-	_ppln_red_tri = std::make_unique<vk::raii::Pipeline>(std::move(res_ppln_red_tri._pipeline));
+	//_ppln_red_tri = std::make_unique<vk::raii::Pipeline>(std::move(res_mesh_pipeline._pipeline));
+	_ppln_lyt_mesh = std::make_unique<vk::raii::PipelineLayout>(std::move(res_mesh_pipeline._pipeline_layout));
+
+
+}
+
+void Skie::load_mesh() {
+	glm::vec3 pos1 = { 1.f, 1.f, 0.0f };
+	glm::vec3 pos2 = { -1.f, 1.f, 0.0f };
+	glm::vec3 pos3 = { 0.f,-1.f, 0.0f };
+	glm::vec3 color1= { 0.f, 1.f, 0.0f };
+	glm::vec3 color2= { 0.f, 1.f, 0.0f };
+	glm::vec3 color3= { 0.f, 1.f, 0.0f };
+	_tri_mesh = { std::vector{Vertex{pos1,{},color1},Vertex{pos2,{},color2},Vertex{pos3,{},color3}} };
+	if(!_mesh_monkey.from_obj("./resources/susan.obj")) {
+		throw std::runtime_error("Could not load mesh from obj");
+	}
+	upload_mesh(_tri_mesh);
+	upload_mesh(_mesh_monkey);
+	
+};
+	
+
+	
+
+
+void Skie::upload_mesh(Mesh& mesh) {
+	auto bcf = vk::BufferCreateInfo({}, mesh.vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer);
+	mesh.vertex_buffer = std::make_unique<AllocatedBuffer>();
+	VmaAllocationCreateInfo vma_allocator_create = {};
+	vma_allocator_create.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	SkCheck(vk::Result(vmaCreateBuffer(g_vma_allocator,reinterpret_cast<VkBufferCreateInfo*>(&bcf) , &vma_allocator_create,&mesh.vertex_buffer->buffer, &mesh.vertex_buffer->allocation, nullptr)));
+
+	void* data;
+	vmaMapMemory(g_vma_allocator, mesh.vertex_buffer->allocation, &data);
+	memcpy(data, mesh.vertices.data(),mesh.vertices.size()*sizeof(Vertex));
+	vmaUnmapMemory(g_vma_allocator, mesh.vertex_buffer->allocation);
+
 
 }
 
@@ -253,4 +325,7 @@ vk::raii::ShaderModule Skie::load_shader_module(const std::string& path) {
 	return vk::raii::ShaderModule(*_device, info);
 }
 
-Skie::~Skie() = default;
+Skie::~Skie() {
+	while (vk::Result::eTimeout == _device->waitForFences({ **_fnce_render }, true, 1e9));
+
+}

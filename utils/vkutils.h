@@ -8,6 +8,7 @@
 #include "GLFW/glfw3.h"
 #include <vector>
 #include <ranges>
+#include <vk_mem_alloc.h>
 
 
 #ifndef NDEBUG
@@ -17,8 +18,21 @@ constexpr bool kDebug = false;
 #endif
 
 
+
 namespace sk
 {
+	//This needs to be refactored eventually...
+	inline VmaAllocator g_vma_allocator = nullptr;
+
+	struct AllocatedBuffer
+	{
+		
+		VkBuffer buffer;
+		VmaAllocation allocation;
+		~AllocatedBuffer() {
+			vmaDestroyBuffer(g_vma_allocator, buffer, allocation);
+		}
+	};
 	//simpler version of vkbootstrap->group of helper function to ease dev
 	namespace vkbs {
 		class InstanceBuilder

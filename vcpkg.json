@@ -5,6 +5,8 @@
     "glfw3",
     "glm",
     "vulkan",
-    "glog"
+    "glog",
+    "vulkan-memory-allocator",
+    "tinyobjloader"
   ]
 }
