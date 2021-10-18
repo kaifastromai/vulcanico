@@ -7,6 +7,8 @@
 #include <glm/glm.hpp>
 
 
+struct GLFWwindow;
+
 namespace sk {
 	struct MeshPushConstants
 	{
@@ -71,6 +73,9 @@ namespace sk {
 		VkAllocator g_vma_allocator;
 		vk::Format _swapchain_format;
 		std::vector<VkImage> _swapchain_images;
+		vk::raii::ImageView _img_view_depth;
+		VkAllocatedImage _img_depth;
+		vk::Format _fmt_depth;
 		std::vector<vk::raii::ImageView> _swapchain_image_views;
 		
 
@@ -94,10 +99,6 @@ namespace sk {
 		Mesh _mesh_monkey;
 
 		vk::raii::ShaderModule load_shader_module(const std::string& path);
-		
-		Glvk* _glvk;
-
-
 
 	};
 	class PipelineBuilder

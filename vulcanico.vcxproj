@@ -162,12 +162,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\glsk.cpp" />
     <ClCompile Include="src\skie_mesh.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Skie.cpp" />
     <ClCompile Include="vk-bootstrap\src\VkBootstrap.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\glsk.h" />
     <ClInclude Include="src\skie_mesh.h" />
     <ClInclude Include="src\Skie.h" />
     <ClInclude Include="utils\vkutils.h" />

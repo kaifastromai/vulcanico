@@ -1,4 +1,5 @@
 #include "Skie.h"
+#include "glsk.h"
 #include "../vk-bootstrap/src/VkBootstrap.h"
 #include "ranges"
 #define VMA_IMPLEMENTATION
@@ -11,9 +12,7 @@
 using namespace sk;
 Skie::Skie() {
 
-	_glvk =new Glvk(kWidth, kHeight,"Skie");
-	_glvk->set_key_callback(&key_callback,this);
-	
+	window::Glvk::init(kWidth, kHeight, "Skie");
 	init_vulkan();
 	init_swapchain();
 	init_commands();
@@ -23,9 +22,9 @@ Skie::Skie() {
 	init_pipelines();
 }
 void Skie::run() {
-	while(!_glvk->window_should_close())
+	while(!window::Glvk::window_should_close())
 	{
-		_glvk->poll_events();
+		window::Glvk::poll_events();
 		draw();
 	}
 }
@@ -41,7 +40,7 @@ void Skie::draw() {
 	cmd->begin(vk::CommandBufferBeginInfo({vk::CommandBufferUsageFlagBits::eOneTimeSubmit}));
 	vk::ClearValue cv;
 	cv.color = vk::ClearColorValue( std::array<float,4>{(float)(1-sin(_frame_number/120.0))/2.0f, 0.5, 0.0, 1.0});
-	auto extent = _glvk->get_framebuffer_size();
+	auto extent =window::Glvk::get_framebuffer_size();
 	
 	vk::RenderPassBeginInfo rpci{ **_renderpass,*_framebuffers[swapchain_image_indx],{{0,0},{kWidth,kHeight}},1,&cv };
 	cmd->beginRenderPass(rpci,vk::SubpassContents::eInline);
@@ -104,8 +103,8 @@ void Skie::init_swapchain() {
 	vkb::SwapchainBuilder swapchain_builder{ **_gpu,**_device,**_surface };
 	auto flags = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
 	swapchain_builder.set_image_usage_flags(static_cast<VkImageUsageFlags>(flags));
-
-	auto vkb_swapchain = swapchain_builder.use_default_format_selection().set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR).set_desired_extent(_glvk->get_framebuffer_size().width, _glvk->get_framebuffer_size().height).build();
+	auto window_extent = window::Glvk::get_framebuffer_size();
+	auto vkb_swapchain = swapchain_builder.use_default_format_selection().set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR).set_desired_extent(window_extent.width, window_extent.height).build();
 	
 
 	_swapchain = std::make_unique<vk::raii::SwapchainKHR>(*_device, vkb_swapchain->swapchain);
@@ -142,7 +141,7 @@ void Skie::init_vulkan() {
 	_debug_messenger =std::make_unique< vk::raii::DebugUtilsMessengerEXT>(*_instance, inst_ret.value().debug_messenger);
 	VkSurfaceKHR t_surface;
 	//This is pretty ugly
-	_glvk->create_surface(**_instance, &t_surface);
+	window::Glvk::create_surface(**_instance, &t_surface);
 	//auto ret = _glvk->get_glfw_extensions_();
 	_surface = std::make_unique<vk::raii::SurfaceKHR>(*_instance, t_surface);
 	vkb::PhysicalDeviceSelector selector{ inst_ret.value() };
@@ -205,8 +204,8 @@ void Skie::init_framebuffers() {
 }
 
 void Skie::key_callback(GLFWwindow* w, int key, int scancode,int action, int mods) {
-	Skie* ctx = static_cast<Skie*>(glfwGetWindowUserPointer(w));
-	if(key==GLFW_KEY_SPACE)
+	Skie* ctx = static_cast<Skie*>(window::Glvk::get_window_user_ptr());
+	if(key==static_cast<unsigned>(window::Glvk::key::eSpace))
 	{
 		ctx->_selected_shader = (ctx->_selected_shader + 1) % 2;
 		if(kDebug)
@@ -226,7 +225,7 @@ void Skie::init_sync() {
 
 void Skie::init_pipelines() {
 
-
+	auto window_extent = window::Glvk::get_framebuffer_size();
 	auto vert_shader_module_tri = load_shader_module("./shaders/build/colored_triangle.vert.spv");
 	auto frag_shader_module_tri = load_shader_module("./shaders/build/colored_triangle.frag.spv");
 	auto vert_shader_module_mesh = load_shader_module("./shaders/build/tri_shader.vert.spv");
@@ -242,8 +241,8 @@ void Skie::init_pipelines() {
 		set_input_asm(vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList)).
 		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false,{},{},{},1.0f)).
 		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
-		set_viewport({ 0,0,static_cast<float>(_glvk->get_framebuffer_size().width),static_cast<float>(_glvk->get_framebuffer_size().height) }).
-		set_scissor({ {0,0},_glvk->get_framebuffer_size() });
+		set_viewport({ 0,0,static_cast<float>(window_extent.width),static_cast<float>(window_extent.height) }).
+		set_scissor({ {0,0},window_extent });
 
 	PipelineBuilder ppln_bldr_mesh {};
 	auto push_constants = vk::PushConstantRange();
@@ -262,8 +261,8 @@ void Skie::init_pipelines() {
 		set_input_asm(vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList)).
 		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false, {}, {}, {}, 1.0f)).
 		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
-		set_viewport({ 0,0,static_cast<float>(_glvk->get_framebuffer_size().width),static_cast<float>(_glvk->get_framebuffer_size().height) }).
-		set_scissor({ {0,0},_glvk->get_framebuffer_size() });
+		set_viewport({ 0,0,static_cast<float>(window_extent.width),static_cast<float>(window_extent.height) }).
+		set_scissor({ {0,0},window_extent });
 
 	auto color_blend_bits = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
 	ppln_bldr_mesh .set_color_blend({ vk::PipelineColorBlendAttachmentState(false, {}, {}, {}, {}, {}, {}, color_blend_bits) });
@@ -317,7 +316,7 @@ void Skie::upload_mesh(Mesh& mesh) {
 
 vk::raii::ShaderModule Skie::load_shader_module(const std::string& path) {
 
-	auto code = read_shader(path);
+	auto code = utils::read_shader(path);
 	auto info = vk::ShaderModuleCreateInfo({}, code.size(), reinterpret_cast<const uint32_t*>(code.data()));
 	return vk::raii::ShaderModule(*_device, info);
 }
