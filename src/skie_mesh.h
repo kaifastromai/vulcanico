@@ -24,7 +24,7 @@ namespace sk
 	{
 		std::vector<Vertex> vertices;
 
-		std::unique_ptr<AllocatedBuffer> vertex_buffer;
+		std::unique_ptr<VkAllocatedBuffer> vertex_buffer;
 		bool from_obj(const char* filename);
 	};
 

@@ -40,7 +40,7 @@ void Skie::draw() {
 	
 	cmd->begin(vk::CommandBufferBeginInfo({vk::CommandBufferUsageFlagBits::eOneTimeSubmit}));
 	vk::ClearValue cv;
-	cv.color = vk::ClearColorValue( std::array<float,4>{(float)(1-sin(_frame_number/120.0))/2.0f, 0.0, 0.0, 1.0});
+	cv.color = vk::ClearColorValue( std::array<float,4>{(float)(1-sin(_frame_number/120.0))/2.0f, 0.5, 0.0, 1.0});
 	auto extent = _glvk->get_framebuffer_size();
 	
 	vk::RenderPassBeginInfo rpci{ **_renderpass,*_framebuffers[swapchain_image_indx],{{0,0},{kWidth,kHeight}},1,&cv };
@@ -156,11 +156,8 @@ void Skie::init_vulkan() {
 	_graphics_queue = std::make_unique<vk::raii::Queue>(*_device, vkb_device.get_queue(vkb::QueueType::graphics).value());
 	_graphics_queue_family_index = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
 
-	VmaAllocatorCreateInfo allocator_create_info = {};
-	allocator_create_info.physicalDevice = **_gpu;
-	allocator_create_info.device = **_device;
-	allocator_create_info.instance = **_instance;
-	vmaCreateAllocator(&allocator_create_info, &g_vma_allocator);
+	AllocatorCreateInfo alloc_info = AllocatorCreateInfo(**_gpu, **_device, **_instance);
+	VkAllocator::init(alloc_info);
 
 	load_mesh();
 	
@@ -305,7 +302,7 @@ void Skie::load_mesh() {
 
 void Skie::upload_mesh(Mesh& mesh) {
 	auto bcf = vk::BufferCreateInfo({}, mesh.vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer);
-	mesh.vertex_buffer = std::make_unique<AllocatedBuffer>();
+	mesh.vertex_buffer = std::make_unique<VkAllocatedBuffer>();
 	VmaAllocationCreateInfo vma_allocator_create = {};
 	vma_allocator_create.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	SkCheck(vk::Result(vmaCreateBuffer(g_vma_allocator,reinterpret_cast<VkBufferCreateInfo*>(&bcf) , &vma_allocator_create,&mesh.vertex_buffer->buffer, &mesh.vertex_buffer->allocation, nullptr)));
@@ -326,6 +323,10 @@ vk::raii::ShaderModule Skie::load_shader_module(const std::string& path) {
 }
 
 Skie::~Skie() {
-	while (vk::Result::eTimeout == _device->waitForFences({ **_fnce_render }, true, 1e9));
+	if(_device->waitForFences({**_fnce_render}, true, 1e9)!=vk::Result::eSuccess)
+	{
+		throw std::runtime_error("Error in waiting for fences");
+	}
+	
 
 }

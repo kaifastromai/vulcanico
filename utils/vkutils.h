@@ -22,17 +22,55 @@ constexpr bool kDebug = false;
 namespace sk
 {
 	//This needs to be refactored eventually...
-	inline VmaAllocator g_vma_allocator = nullptr;
+	struct AllocatorCreateInfo
+	{
+	private:
+		VmaAllocatorCreateInfo _allocator_create_info{};
+	public:
+		AllocatorCreateInfo(vk::PhysicalDevice physical_device, vk::Device device, vk::Instance instance) {
+			_allocator_create_info.instance = instance;
+			_allocator_create_info.physicalDevice = physical_device;
+			_allocator_create_info.device = device;
+		}
+		operator VmaAllocatorCreateInfo*()  { return &_allocator_create_info; }
 
-	struct AllocatedBuffer
+
+	};
+	
+	struct VkAllocator
+	{
+
+		inline static VmaAllocator allocator;
+
+		VkAllocator() {
+			allocator = nullptr;
+		}
+		static vk::Result init(AllocatorCreateInfo& info) {
+			return vk::Result(vmaCreateAllocator(info, &allocator));
+		}
+
+		~VkAllocator() {
+			vmaDestroyAllocator(allocator);
+		}
+
+		operator VmaAllocator() const {
+			return allocator;
+		}
+
+
+	};
+
+	struct VkAllocatedBuffer
 	{
 		
 		VkBuffer buffer;
 		VmaAllocation allocation;
-		~AllocatedBuffer() {
-			vmaDestroyBuffer(g_vma_allocator, buffer, allocation);
+		~VkAllocatedBuffer() {
+			vmaDestroyBuffer(VkAllocator::allocator, buffer, allocation);
 		}
 	};
+	
+	
 	//simpler version of vkbootstrap->group of helper function to ease dev
 	namespace vkbs {
 		class InstanceBuilder
@@ -41,7 +79,7 @@ namespace sk
 			vk::InstanceCreateInfo _instance_flags;
 			vk::ApplicationInfo _app_info;
 			std::vector<const char*> _enabled_extensions;
-			std::vector<char*> get_supported_extensions() {
+			std::vector<char*> get_supported_extensions() const {
 				auto supported_extension_props = vk::enumerateInstanceLayerProperties();
 				
 			}
@@ -113,29 +151,27 @@ namespace sk
 		};
 		
 
-		void create_surface(vk::Instance instance, VkSurfaceKHR* surface)
-		{
+		void create_surface(vk::Instance instance, VkSurfaceKHR* surface) const {
 			if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS)
 			{
 				throw std::runtime_error("Failed to create window surface!");
 			}
 		}
-		vk::Extent2D get_framebuffer_size()
-		{
+		vk::Extent2D get_framebuffer_size() const {
 			int width, height;
 			glfwGetFramebufferSize(window, &width, &height);
 			return vk::Extent2D(width, height);
 
 		}
 
-		Extent2d<float> content_scale() {
+		Extent2d<float> content_scale() const {
 			float x;
 			float y;
 			glfwGetWindowContentScale(window, &x, &y);
 			return Extent2d{ x, y };
 			
 		}
-		void set_key_callback(GLFWkeyfun callback, sk::Skie* ctx) {
+		void set_key_callback(GLFWkeyfun callback, sk::Skie* ctx) const {
 			glfwSetWindowUserPointer(window, ctx);
 			glfwSetKeyCallback(window, callback);
 		}

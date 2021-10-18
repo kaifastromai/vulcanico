@@ -52,14 +52,15 @@ namespace sk {
 		uint32_t _selected_shader{ 0 };
 		void load_mesh();
 		void upload_mesh(Mesh &mesh);
-		Mesh _mesh_monkey;
 
 		
 
 
 		//private member variables
 	private:
-
+		void delete_allocator(VmaAllocator allocator) {
+			vmaDestroyAllocator(allocator);
+		}
 		uint64_t _frame_number;
 		std::unique_ptr<vk::raii::Instance> _instance;
 		std::unique_ptr< vk::raii::DebugUtilsMessengerEXT> _debug_messenger;
@@ -67,6 +68,7 @@ namespace sk {
 		std::unique_ptr<vk::raii::Device> _device;
 		std::unique_ptr<vk::raii::SurfaceKHR >_surface;
 		std::unique_ptr<vk::raii::SwapchainKHR> _swapchain;
+		VkAllocator g_vma_allocator;
 		vk::Format _swapchain_format;
 		std::vector<VkImage> _swapchain_images;
 		std::vector<vk::raii::ImageView> _swapchain_image_views;
@@ -89,6 +91,8 @@ namespace sk {
 
 		std::unique_ptr<vk::raii::Pipeline> _mesh_pipeline;
 	    Mesh _tri_mesh;
+		Mesh _mesh_monkey;
+
 		vk::raii::ShaderModule load_shader_module(const std::string& path);
 		
 		Glvk* _glvk;

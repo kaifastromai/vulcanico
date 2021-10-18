@@ -9,12 +9,15 @@ int main()
 	auto sk = sk::Skie();
 	sk.run();
 
+
+
 		
 	}catch(std::exception &e)
 	{
 		cerr << e.what() << endl;
 		
 	}
+
 
 
 	
