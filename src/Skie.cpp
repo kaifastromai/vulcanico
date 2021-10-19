@@ -115,8 +115,16 @@ void Skie::init_swapchain() {
 		_swapchain_image_views.push_back(vk::raii::ImageView(*_device, iv));
 	}
 
+	auto _depth_image_extent = vk::Extent3D(window::Glvk::get_framebuffer_size(), 1);
+	_fmt_depth = vk::Format::eD32Sfloat;
+	auto depth_info = vk::ImageCreateInfo({}, vk::ImageType::e2D, _fmt_depth, _depth_image_extent, 1, 1, vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment);
+	VmaAllocationCreateInfo dimg_info{};
+	dimg_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	dimg_info.requiredFlags = static_cast<VkMemoryPropertyFlags>(vk::MemoryPropertyFlagBits::eDeviceLocal);
+	vmaCreateImage(g_vma_allocator, reinterpret_cast<VkImageCreateInfo*>(&depth_info), &dimg_info, reinterpret_cast<VkImage*>(&_img_depth.image), &_img_depth.allocation, nullptr);
 	_swapchain_images = vkb_swapchain->get_images().value();
 	_swapchain_format = vk::Format{ vkb_swapchain->image_format };
+	//vk::ImageViewCreateInfo image_view_create_info({},_fmt_depth,vk::ImageViewType::e2D,_fmt_depth,)
 
 
 }

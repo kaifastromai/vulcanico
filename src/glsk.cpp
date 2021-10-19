@@ -1,11 +1,12 @@
-#include <vulkan/vulkan.hpp>
 #include "glsk.h"
-#define GLFW_INCLUDE_NONE
+#include <vulkan/vulkan.hpp>
+#include <GLFW/glfw3.h>
 #include <stdexcept>
+
+
 using namespace  sk;
 
 void window::Glvk::init(const uint32_t& width, const uint32_t& height, const std::string& title) {
-	GLFWwindow* w;
 	if(window!=nullptr)
 	{
 		throw std::runtime_error("Glfw already initiliazed!");

@@ -3,19 +3,24 @@
 #include <string>
 #include <vector>
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_structs.hpp>
-#include <GLFW/glfw3.h>
 
 namespace vk {
 	class Instance;
+	class Extent2D;
 }
+
+struct GLFWwindow;
+typedef void (*GLFWkeyfun)(GLFWwindow*, int, int, int, int);
+
+//
+//namespace vk {
+//	class Instance;
+//}
 
 //forward declaration
 
 namespace sk {
 	class Skie;
-
-
 
 	namespace window {
 		class Glvk
@@ -29,15 +34,13 @@ namespace sk {
 				eSpace = 32,
 			};
 			
-		private:
 			Glvk() = delete;
 
 			~Glvk();
-
 		private:
-			static GLFWwindow* window;
 
-			 static std::vector<const char*> glfw_extensions_;
+			inline static GLFWwindow* window;
+			inline static std::vector<const char*> glfw_extensions_;
 			static void init_window(uint32_t width, uint32_t height, const std::string title);
 		public:
 
