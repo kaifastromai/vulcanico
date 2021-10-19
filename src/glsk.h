@@ -4,14 +4,14 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_structs.hpp>
+#include <GLFW/glfw3.h>
 
 namespace vk {
 	class Instance;
 }
 
 //forward declaration
-struct GLFWwindow;
-typedef void (*GLFWkeyfun)(GLFWwindow*, int, int, int, int);
+
 namespace sk {
 	class Skie;
 

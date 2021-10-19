@@ -2,7 +2,6 @@
 #include "glsk.h"
 #define GLFW_INCLUDE_NONE
 #include <stdexcept>
-#include <GLFW/glfw3.h>
 using namespace  sk;
 
 void window::Glvk::init(const uint32_t& width, const uint32_t& height, const std::string& title) {
