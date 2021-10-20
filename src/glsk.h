@@ -44,7 +44,7 @@ namespace sk {
 			static void init_window(uint32_t width, uint32_t height, const std::string title);
 		public:
 
-			static [[nodiscard]] bool window_should_close();
+			static bool window_should_close();
 
 			static std::vector<const char*> get_glfw_extensions_();
 

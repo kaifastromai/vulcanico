@@ -62,7 +62,7 @@ sk::window::Glvk::Extent2d<float> sk::window::Glvk::content_scale()  {
 	float x;
 	float y;
 	glfwGetWindowContentScale(window, &x, &y);
-	return Extent2d{ x, y };
+	return Extent2d<float>{ x, y };
 
 }
 

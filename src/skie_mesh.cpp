@@ -21,24 +21,18 @@ bool sk::Mesh::from_obj(const char* filename) {
 	std::vector<tinyobj::shape_t> shapes;
 	//materials contains the information about the material of each shape, but we won't use it.
 	std::vector<tinyobj::material_t> materials;
-
-	//error and warning output from the load function
-	std::string warn;
-	std::string err;
+	tinyobj::ObjReader reader;
 
 	//load the OBJ file
-	tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, nullptr);
+	
 	//make sure to output the warnings to the console, in case there are issues with the file
-	if (!warn.empty()) {
-		std::cout << "WARN: " << warn << std::endl;
-	}
-	//if we have any error, print it to the console, and break the mesh loading.
-	//This happens if the file can't be found or is malformed
-	if (!err.empty()) {
-		std::cerr << err << std::endl;
+	if (!reader.ParseFromFile(filename)) {
+		std::cerr << "Could not open file at "<<filename << std::endl;
 		return false;
 	}
-	for (auto& shape : shapes)
+
+	attrib = reader.GetAttrib();
+	for (auto& shape : reader.GetShapes())
 	{
 		// Loop over faces(polygon)
 		size_t index_offset = 0;

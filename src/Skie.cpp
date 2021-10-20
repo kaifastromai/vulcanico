@@ -8,7 +8,6 @@
 #include <glm/ext/matrix_clip_space.hpp> // glm::perspective
 #include <glm/ext/scalar_constants.hpp> // glm::pi
 
-
 using namespace sk;
 Skie::Skie() {
 
@@ -37,15 +36,17 @@ void Skie::draw() {
 	_main_command_buffer->front().reset();
 	auto cmd = &_main_command_buffer->front();
 	
-	cmd->begin(vk::CommandBufferBeginInfo({vk::CommandBufferUsageFlagBits::eOneTimeSubmit}));
+	cmd->begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 	vk::ClearValue cv;
 	cv.color = vk::ClearColorValue( std::array<float,4>{(float)(1-sin(_frame_number/120.0))/2.0f, 0.5, 0.0, 1.0});
+	vk::ClearValue depth_clear;
+	depth_clear.depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 	auto extent =window::Glvk::get_framebuffer_size();
-	
-	vk::RenderPassBeginInfo rpci{ **_renderpass,*_framebuffers[swapchain_image_indx],{{0,0},{kWidth,kHeight}},1,&cv };
+	std::array clear_values = { cv,depth_clear };
+	vk::RenderPassBeginInfo rpci{ **_renderpass,*_framebuffers[swapchain_image_indx],{{0,0},window::Glvk::get_framebuffer_size()},clear_values};
 	cmd->beginRenderPass(rpci,vk::SubpassContents::eInline);
 
-	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, **_mesh_pipeline);
+	cmd->bindPipeline(vk::PipelineBindPoint::eGraphics, **_ppln_mesh);
 	vk::DeviceSize offset = 0;
 	cmd->bindVertexBuffers(0, { _mesh_monkey.vertex_buffer->buffer }, {offset});
 
@@ -69,10 +70,10 @@ void Skie::draw() {
 	
 		auto si = vk::SubmitInfo(1, &(**_smph_present) , &wait_stage, 
 			1, &**cmd , 1,&(**_smph_render));
-	_graphics_queue->submit({ si }, **_fnce_render);
+	_queue_graphics->submit({ si }, **_fnce_render);
 
 	auto pi = vk::PresentInfoKHR(1, &(**_smph_render), 1, &(**_swapchain), &swapchain_image_indx);
-	SkCheck(_graphics_queue->presentKHR(pi));
+	SkCheck(_queue_graphics->presentKHR(pi));
 
 	_frame_number++;
 
@@ -84,7 +85,7 @@ PipelineBuilder::Result PipelineBuilder::build_pipeline(vk::raii::Device& device
 	auto viewport_state = vk::PipelineViewportStateCreateInfo({}, 1, &_viewport, 1, &_scissor);
 
 	auto pcbscio = vk::PipelineColorBlendStateCreateInfo({}, false, vk::LogicOp::eCopy, _color_blend_attachment_states);
-	auto gpcio = vk::GraphicsPipelineCreateInfo({}, _shader_stages, &_vertex_input_state_create_info, &_input_assembly_state_create_info, {}, &viewport_state, &_rasterization_state_create_info, &_multisample_state_create_info, {}, &pcbscio, {}, *_pipeline_layout, *pass, 0);
+	auto gpcio = vk::GraphicsPipelineCreateInfo({}, _shader_stages, &_vertex_input_state_create_info, &_input_assembly_state_create_info, {}, &viewport_state, &_rasterization_state_create_info, &_multisample_state_create_info, &_depth_stencil_state_, &pcbscio, {}, *_pipeline_layout, *pass, 0);
 	vk::raii::Pipeline pipeline(device, nullptr, gpcio);
 	switch (pipeline.getConstructorSuccessCode())
 	{
@@ -108,24 +109,28 @@ void Skie::init_swapchain() {
 	
 
 	_swapchain = std::make_unique<vk::raii::SwapchainKHR>(*_device, vkb_swapchain->swapchain);
-	//_swapchain_image_views = vkb_swapchain->get_image_views().value();
+	//_img_views_swapchain = vkb_swapchain->get_image_views().value();
 	auto rawivs = vkb_swapchain->get_image_views().value();
 	for (int i{ 0 };auto& iv : rawivs)
 	{
-		_swapchain_image_views.push_back(vk::raii::ImageView(*_device, iv));
+		_img_views_swapchain.push_back(vk::raii::ImageView(*_device, iv));
 	}
 
-	auto _depth_image_extent = vk::Extent3D(window::Glvk::get_framebuffer_size(), 1);
+	auto _depth_image_extent = vk::Extent3D(window_extent, 1);
 	_fmt_depth = vk::Format::eD32Sfloat;
 	auto depth_info = vk::ImageCreateInfo({}, vk::ImageType::e2D, _fmt_depth, _depth_image_extent, 1, 1, vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment);
+
 	VmaAllocationCreateInfo dimg_info{};
 	dimg_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	dimg_info.requiredFlags = static_cast<VkMemoryPropertyFlags>(vk::MemoryPropertyFlagBits::eDeviceLocal);
-	vmaCreateImage(g_vma_allocator, reinterpret_cast<VkImageCreateInfo*>(&depth_info), &dimg_info, reinterpret_cast<VkImage*>(&_img_depth.image), &_img_depth.allocation, nullptr);
-	_swapchain_images = vkb_swapchain->get_images().value();
-	_swapchain_format = vk::Format{ vkb_swapchain->image_format };
-	//vk::ImageViewCreateInfo image_view_create_info({},_fmt_depth,vk::ImageViewType::e2D,_fmt_depth,)
+	auto res=vmaCreateImage(g_vma_allocator, reinterpret_cast<VkImageCreateInfo*>(&depth_info), &dimg_info, reinterpret_cast<VkImage*>(&_img_depth.image), &_img_depth.allocation, nullptr);
 
+	SkCheck(static_cast<vk::Result>(res));
+
+	_imgs_swapchain = vkb_swapchain->get_images().value();
+	_fmt_swapchain = vk::Format{ vkb_swapchain->image_format };
+	vk::ImageViewCreateInfo image_view_create_info({}, _img_depth.image,vk::ImageViewType::e2D, _fmt_depth, {}, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1));
+	_img_view_depth = vk::raii::ImageView(*_device, image_view_create_info);
 
 }
 
@@ -160,8 +165,8 @@ void Skie::init_vulkan() {
 	_gpu = std::make_unique<vk::raii::PhysicalDevice>(*_instance, physical_device.value().physical_device);
 
 	_device =std::make_unique< vk::raii::Device>(*_gpu,vkb_device.device);
-	_graphics_queue = std::make_unique<vk::raii::Queue>(*_device, vkb_device.get_queue(vkb::QueueType::graphics).value());
-	_graphics_queue_family_index = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
+	_queue_graphics = std::make_unique<vk::raii::Queue>(*_device, vkb_device.get_queue(vkb::QueueType::graphics).value());
+	_queue_family_index_graphics = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
 
 	AllocatorCreateInfo alloc_info = AllocatorCreateInfo(**_gpu, **_device, **_instance);
 	VkAllocator::init(alloc_info);
@@ -172,7 +177,7 @@ void Skie::init_vulkan() {
 
 void Skie::init_commands() {
 
-	auto cpci = vk::CommandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, _graphics_queue_family_index);
+	auto cpci = vk::CommandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, _queue_family_index_graphics);
 	_command_pool = std::make_unique<vk::raii::CommandPool>(*_device, cpci);
 	auto cbai = vk::CommandBufferAllocateInfo(**_command_pool, vk::CommandBufferLevel::ePrimary, 1);
 	_main_command_buffer = std::make_unique<vk::raii::CommandBuffers>(*_device, cbai);
@@ -183,31 +188,42 @@ void Skie::init_commands() {
 }
 
 void Skie::init_default_renderpass() {
-	auto ca = vk::AttachmentDescription({},_swapchain_format,vk::SampleCountFlagBits::e1,vk::AttachmentLoadOp::eClear,vk::AttachmentStoreOp::eStore,vk::AttachmentLoadOp::eDontCare,vk::AttachmentStoreOp::eDontCare,vk::ImageLayout::eUndefined,vk::ImageLayout::ePresentSrcKHR);
-	auto car = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
-	auto sd = vk::SubpassDescription({}, vk::PipelineBindPoint::eGraphics, 0, {}, 1, &car);
+	auto color_attachment = vk::AttachmentDescription({},_fmt_swapchain,vk::SampleCountFlagBits::e1,vk::AttachmentLoadOp::eClear,vk::AttachmentStoreOp::eStore,vk::AttachmentLoadOp::eDontCare,vk::AttachmentStoreOp::eDontCare,vk::ImageLayout::eUndefined,vk::ImageLayout::ePresentSrcKHR);
+	auto attachment_ref_color = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
 
-	auto rpci = vk::RenderPassCreateInfo({}, 1, &ca, 1, &sd);
+
+	auto depth_attachment = vk::AttachmentDescription({}, _fmt_depth, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore, vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+	vk::AttachmentReference attachment_ref_depth(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+	auto sd = vk::SubpassDescription({}, vk::PipelineBindPoint::eGraphics, 0, {}, 1, &attachment_ref_color,{},&attachment_ref_depth);
+	std::array attachment_descriptions{ color_attachment,depth_attachment };
+	std::array sds = { sd };
+	vk::SubpassDependency dependency(VK_SUBPASS_EXTERNAL, 0, vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::AccessFlagBits::eColorAttachmentWrite);
+
+	auto rpci = vk::RenderPassCreateInfo({},attachment_descriptions,sds,dependency);
 	_renderpass = std::make_unique<vk::raii::RenderPass>(*_device, rpci);
+
+
+
 
 
 }
 
 void Skie::init_framebuffers() {
 
-
+	auto _window_extents = window::Glvk::get_framebuffer_size();
 
 	/**/
-	std::array<vk::ImageView, 1> attachments;
 	
-	for(int i{0};auto const  &iv: _swapchain_image_views)
+	
+	for(auto const  &iv: _img_views_swapchain)
 	{
-		
-		attachments[0] = *iv;
-		auto fb_info = vk::FramebufferCreateInfo({}, **_renderpass,  {attachments}, kWidth, kHeight, 1);
+		std::array<vk::ImageView, 2> attachments = { *iv,*_img_view_depth };
+		auto fb_info = vk::FramebufferCreateInfo({}, **_renderpass,  attachments, _window_extents.width,_window_extents.height, 1);
 
 		_framebuffers.push_back(vk::raii::Framebuffer(*_device, fb_info));
-		i++;
+
 	}
 }
 
@@ -247,10 +263,12 @@ void Skie::init_pipelines() {
 			}).
 		set_vertex_input_state(vk::PipelineVertexInputStateCreateInfo()).
 		set_input_asm(vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList)).
-		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false,{},{},{},1.0f)).
+		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false, {}, {}, {}, 1.0f)).
 		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
 		set_viewport({ 0,0,static_cast<float>(window_extent.width),static_cast<float>(window_extent.height) }).
-		set_scissor({ {0,0},window_extent });
+		set_scissor({ {0,0},window_extent }).
+		set_depth_stencil_state(vk::PipelineDepthStencilStateCreateInfo({}, true, true, vk::CompareOp::eLessOrEqual, false, false));
+
 
 	PipelineBuilder ppln_bldr_mesh {};
 	auto push_constants = vk::PushConstantRange();
@@ -270,7 +288,9 @@ void Skie::init_pipelines() {
 		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false, {}, {}, {}, 1.0f)).
 		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
 		set_viewport({ 0,0,static_cast<float>(window_extent.width),static_cast<float>(window_extent.height) }).
-		set_scissor({ {0,0},window_extent });
+		set_scissor({ {0,0},window_extent }).
+		set_depth_stencil_state(vk::PipelineDepthStencilStateCreateInfo({}, true, true, vk::CompareOp::eLessOrEqual, false, false,{},{},0.0,1.0f));
+
 
 	auto color_blend_bits = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
 	ppln_bldr_mesh .set_color_blend({ vk::PipelineColorBlendAttachmentState(false, {}, {}, {}, {}, {}, {}, color_blend_bits) });
@@ -278,7 +298,7 @@ void Skie::init_pipelines() {
 
 	auto res_ppln_colored_tri = ppln_colored_tri.build_pipeline(*_device, *_renderpass);
 	auto res_mesh_pipeline = ppln_bldr_mesh .build_pipeline(*_device, *_renderpass);
-	_mesh_pipeline= std::make_unique<vk::raii::Pipeline>(std::move(res_mesh_pipeline._pipeline));
+	_ppln_mesh= std::make_unique<vk::raii::Pipeline>(std::move(res_mesh_pipeline._pipeline));
 	_ppln_lyt_triangle = std::make_unique<vk::raii::PipelineLayout>(std::move(res_ppln_colored_tri._pipeline_layout));
 	_ppln_triangle = std::make_unique<vk::raii::Pipeline>(std::move(res_ppln_colored_tri._pipeline));
 	//_ppln_red_tri = std::make_unique<vk::raii::Pipeline>(std::move(res_mesh_pipeline._pipeline));
@@ -294,11 +314,11 @@ void Skie::load_mesh() {
 	glm::vec3 color1= { 0.f, 1.f, 0.0f };
 	glm::vec3 color2= { 0.f, 1.f, 0.0f };
 	glm::vec3 color3= { 0.f, 1.f, 0.0f };
-	_tri_mesh = { std::vector{Vertex{pos1,{},color1},Vertex{pos2,{},color2},Vertex{pos3,{},color3}} };
-	if(!_mesh_monkey.from_obj("./resources/susan.obj")) {
+	_mesh_tri = { std::vector{Vertex{pos1,{},color1},Vertex{pos2,{},color2},Vertex{pos3,{},color3}} };
+	if(!_mesh_monkey.from_obj("E:/dev/vulcanico/resources/susan.obj")) {
 		throw std::runtime_error("Could not load mesh from obj");
 	}
-	upload_mesh(_tri_mesh);
+	upload_mesh(_mesh_tri);
 	upload_mesh(_mesh_monkey);
 	
 };
@@ -319,7 +339,7 @@ void Skie::upload_mesh(Mesh& mesh) {
 	memcpy(data, mesh.vertices.data(),mesh.vertices.size()*sizeof(Vertex));
 	vmaUnmapMemory(g_vma_allocator, mesh.vertex_buffer->allocation);
 
-
+	
 }
 
 vk::raii::ShaderModule Skie::load_shader_module(const std::string& path) {

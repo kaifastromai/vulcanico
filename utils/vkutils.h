@@ -71,6 +71,9 @@ namespace sk
 	{
 		vk::Image image;
 		VmaAllocation allocation;
+		~VkAllocatedImage() {
+			vmaDestroyImage(VkAllocator::allocator, image, allocation);
+		}
 	};
 	
 	

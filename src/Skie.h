@@ -4,6 +4,8 @@
 #include <vulkan/vulkan_raii.hpp>
 #include <functional>
 #include "skie_mesh.h"
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <glm/glm.hpp>
 
 
@@ -19,6 +21,7 @@ namespace sk {
 	inline void SkCheck(vk::Result r) {
 		if (r != vk::Result::eSuccess)
 		{
+			std::cout << vk::to_string(r);
 			throw vk::make_error_code(r);
 		}
 	}
@@ -71,16 +74,16 @@ namespace sk {
 		std::unique_ptr<vk::raii::SurfaceKHR >_surface;
 		std::unique_ptr<vk::raii::SwapchainKHR> _swapchain;
 		VkAllocator g_vma_allocator;
-		vk::Format _swapchain_format;
-		std::vector<VkImage> _swapchain_images;
+		vk::Format _fmt_swapchain;
+		std::vector<VkImage> _imgs_swapchain;
 		vk::raii::ImageView _img_view_depth;
 		VkAllocatedImage _img_depth;
 		vk::Format _fmt_depth;
-		std::vector<vk::raii::ImageView> _swapchain_image_views;
+		std::vector<vk::raii::ImageView> _img_views_swapchain;
 		
 
-		std::unique_ptr<vk::raii::Queue> _graphics_queue;
-		uint32_t _graphics_queue_family_index;
+		std::unique_ptr<vk::raii::Queue> _queue_graphics;
+		uint32_t _queue_family_index_graphics;
 		std::unique_ptr<vk::raii::CommandPool> _command_pool;
 		std::unique_ptr<vk::raii::CommandBuffers> _main_command_buffer;
 		std::unique_ptr<vk::raii::RenderPass> _renderpass;
@@ -93,9 +96,7 @@ namespace sk {
 		std::unique_ptr<vk::raii::Pipeline> _ppln_mesh;
 		std::unique_ptr<vk::raii::Semaphore> _smph_present, _smph_render;
 		std::unique_ptr<vk::raii::Fence> _fnce_render;
-
-		std::unique_ptr<vk::raii::Pipeline> _mesh_pipeline;
-	    Mesh _tri_mesh;
+		Mesh _mesh_tri;
 		Mesh _mesh_monkey;
 
 		vk::raii::ShaderModule load_shader_module(const std::string& path);
@@ -118,6 +119,8 @@ namespace sk {
 		std::vector<vk::PipelineColorBlendAttachmentState> _color_blend_attachment_states;
 		vk::PipelineMultisampleStateCreateInfo _multisample_state_create_info;
 		vk::raii::PipelineLayout _pipeline_layout;
+		vk::PipelineDepthStencilStateCreateInfo _depth_stencil_state_;
+
 
 	
 	public:
@@ -161,6 +164,10 @@ namespace sk {
 			_pipeline_layout = std::move(pipeline_layout);
 			return *this;
 		}
+		PipelineBuilder & set_depth_stencil_state(vk::PipelineDepthStencilStateCreateInfo depth_stencil_state) {
+			_depth_stencil_state_ = depth_stencil_state;
+			return *this;
+		 }
 
 	};
 }
