@@ -199,7 +199,7 @@ void Skie::init_default_renderpass() {
 	auto sd = vk::SubpassDescription({}, vk::PipelineBindPoint::eGraphics, 0, {}, 1, &attachment_ref_color,{},&attachment_ref_depth);
 	std::array attachment_descriptions{ color_attachment,depth_attachment };
 	std::array sds = { sd };
-	vk::SubpassDependency dependency(VK_SUBPASS_EXTERNAL, 0, vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::AccessFlagBits::eColorAttachmentWrite);
+	vk::SubpassDependency dependency(VK_SUBPASS_EXTERNAL, 0, vk::PipelineStageFlagBits::eColorAttachmentOutput|vk::PipelineStageFlagBits::eEarlyFragmentTests, vk::PipelineStageFlagBits::eColorAttachmentOutput| vk::PipelineStageFlagBits::eEarlyFragmentTests, vk::AccessFlagBits::eColorAttachmentWrite| vk::AccessFlagBits::eDepthStencilAttachmentWrite);
 
 	auto rpci = vk::RenderPassCreateInfo({},attachment_descriptions,sds,dependency);
 	_renderpass = std::make_unique<vk::raii::RenderPass>(*_device, rpci);
@@ -289,7 +289,7 @@ void Skie::init_pipelines() {
 		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
 		set_viewport({ 0,0,static_cast<float>(window_extent.width),static_cast<float>(window_extent.height) }).
 		set_scissor({ {0,0},window_extent }).
-		set_depth_stencil_state(vk::PipelineDepthStencilStateCreateInfo({}, true, true, vk::CompareOp::eLessOrEqual, false, false,{},{},0.0,1.0f));
+		set_depth_stencil_state(vk::PipelineDepthStencilStateCreateInfo({}, true, true, vk::CompareOp::eLess, false, false,{},{},0.0,1.0f));
 
 
 	auto color_blend_bits = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
