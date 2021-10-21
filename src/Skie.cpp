@@ -6,7 +6,6 @@
 #include <vk_mem_alloc.h>
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
 #include <glm/ext/matrix_clip_space.hpp> // glm::perspective
-#include <glm/ext/scalar_constants.hpp> // glm::pi
 
 using namespace sk;
 Skie::Skie() {
@@ -50,12 +49,12 @@ void Skie::draw() {
 	vk::DeviceSize offset = 0;
 	cmd->bindVertexBuffers(0, { _mesh_monkey.vertex_buffer->buffer }, {offset});
 
-	glm::vec3 cam_vec = { 0.0f,0.0f,-3.0f };
+	glm::vec3 cam_vec = { 0.0f,0.0f,-6.0f };
 	glm::mat4 view = translate(glm::mat4(1.0), cam_vec);
 	glm::mat4 projection = glm::perspective(glm::radians(70.0f), kWidth /(float)kHeight, 1.0f, 200.0f);
 	projection[1][1] *= -1;
 
-	glm::mat4 model = rotate(glm::mat4{ 1.0f }, glm::radians(_frame_number * 0.4f), glm::vec3(0, 1, 0));
+	glm::mat4 model = rotate(glm::mat4{ 1.0f }, glm::radians(_frame_number * 0.4f), glm::vec3(sqrt(2.0), sqrt(2.0), 0));
 	glm::mat4 mesh_matrix = projection * view * model;
 	MeshPushConstants constants = { {},mesh_matrix };
 	 std::array<MeshPushConstants, 1> pcs{ constants };
@@ -192,7 +191,7 @@ void Skie::init_default_renderpass() {
 	auto attachment_ref_color = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
 
 
-	auto depth_attachment = vk::AttachmentDescription({}, _fmt_depth, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore, vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+	auto depth_attachment = vk::AttachmentDescription({}, _fmt_depth, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
 	vk::AttachmentReference attachment_ref_depth(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
@@ -203,11 +202,6 @@ void Skie::init_default_renderpass() {
 
 	auto rpci = vk::RenderPassCreateInfo({},attachment_descriptions,sds,dependency);
 	_renderpass = std::make_unique<vk::raii::RenderPass>(*_device, rpci);
-
-
-
-
-
 }
 
 void Skie::init_framebuffers() {
@@ -219,7 +213,7 @@ void Skie::init_framebuffers() {
 	
 	for(auto const  &iv: _img_views_swapchain)
 	{
-		std::array<vk::ImageView, 2> attachments = { *iv,*_img_view_depth };
+		std::array attachments = { *iv,*_img_view_depth };
 		auto fb_info = vk::FramebufferCreateInfo({}, **_renderpass,  attachments, _window_extents.width,_window_extents.height, 1);
 
 		_framebuffers.push_back(vk::raii::Framebuffer(*_device, fb_info));
@@ -263,7 +257,7 @@ void Skie::init_pipelines() {
 			}).
 		set_vertex_input_state(vk::PipelineVertexInputStateCreateInfo()).
 		set_input_asm(vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList)).
-		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false, {}, {}, {}, 1.0f)).
+		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eFront, vk::FrontFace::eClockwise, false, {}, {}, {}, 1.0f)).
 		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
 		set_viewport({ 0,0,static_cast<float>(window_extent.width),static_cast<float>(window_extent.height) }).
 		set_scissor({ {0,0},window_extent }).
@@ -285,7 +279,7 @@ void Skie::init_pipelines() {
 			}).
 		set_vertex_input_state(vk::PipelineVertexInputStateCreateInfo({},vertex_input_description.bindings,vertex_input_description.attributes)).
 		set_input_asm(vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eTriangleList)).
-		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eClockwise, false, {}, {}, {}, 1.0f)).
+		set_rasterizer(vk::PipelineRasterizationStateCreateInfo({}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise, false, {}, {}, {}, 1.0f)).
 		set_multisample(vk::PipelineMultisampleStateCreateInfo({}, vk::SampleCountFlagBits::e1, false, 1.0)).
 		set_viewport({ 0,0,static_cast<float>(window_extent.width),static_cast<float>(window_extent.height) }).
 		set_scissor({ {0,0},window_extent }).

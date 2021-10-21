@@ -5,15 +5,11 @@
 #include <string>
 #include <vulkan/vulkan.hpp>
 #include <vector>
-#include <ranges>
 #include <vk_mem_alloc.h>
 
 
-#ifndef NDEBUG
 constexpr bool kDebug = true;
-#elif
-constexpr bool kDebug = false;
-#endif
+
 
 
 

@@ -5,6 +5,7 @@
 #include <functional>
 #include "skie_mesh.h"
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_LEFT_HANDED
 
 #include <glm/glm.hpp>
 
