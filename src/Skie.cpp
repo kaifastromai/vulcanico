@@ -36,12 +36,12 @@ void Skie::draw() {
 	auto cmd = &_main_command_buffer->front();
 	
 	cmd->begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
-	vk::ClearValue cv;
-	cv.color = vk::ClearColorValue( std::array<float,4>{(float)(1-sin(_frame_number/120.0))/2.0f, 0.5, 0.0, 1.0});
+	vk::ClearValue color_clear;
+	color_clear.color = vk::ClearColorValue( std::array<float,4>{(float)(1-sin(_frame_number/120.0))/2.0f, 0.5, 0.0, 1.0});
 	vk::ClearValue depth_clear;
 	depth_clear.depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
-	auto extent =window::Glvk::get_framebuffer_size();
-	std::array clear_values = { cv,depth_clear };
+
+	std::array clear_values = { color_clear,depth_clear };
 	vk::RenderPassBeginInfo rpci{ **_renderpass,*_framebuffers[swapchain_image_indx],{{0,0},window::Glvk::get_framebuffer_size()},clear_values};
 	cmd->beginRenderPass(rpci,vk::SubpassContents::eInline);
 
@@ -198,7 +198,7 @@ void Skie::init_default_renderpass() {
 	auto sd = vk::SubpassDescription({}, vk::PipelineBindPoint::eGraphics, 0, {}, 1, &attachment_ref_color,{},&attachment_ref_depth);
 	std::array attachment_descriptions{ color_attachment,depth_attachment };
 	std::array sds = { sd };
-	vk::SubpassDependency dependency(VK_SUBPASS_EXTERNAL, 0, vk::PipelineStageFlagBits::eColorAttachmentOutput|vk::PipelineStageFlagBits::eEarlyFragmentTests, vk::PipelineStageFlagBits::eColorAttachmentOutput| vk::PipelineStageFlagBits::eEarlyFragmentTests, vk::AccessFlagBits::eColorAttachmentWrite| vk::AccessFlagBits::eDepthStencilAttachmentWrite);
+	vk::SubpassDependency dependency(VK_SUBPASS_EXTERNAL, 0, vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests, vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests, vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eColorAttachmentWrite);
 
 	auto rpci = vk::RenderPassCreateInfo({},attachment_descriptions,sds,dependency);
 	_renderpass = std::make_unique<vk::raii::RenderPass>(*_device, rpci);
@@ -309,7 +309,7 @@ void Skie::load_mesh() {
 	glm::vec3 color2= { 0.f, 1.f, 0.0f };
 	glm::vec3 color3= { 0.f, 1.f, 0.0f };
 	_mesh_tri = { std::vector{Vertex{pos1,{},color1},Vertex{pos2,{},color2},Vertex{pos3,{},color3}} };
-	if(!_mesh_monkey.from_obj("E:/dev/vulcanico/resources/susan.obj")) {
+	if(!_mesh_monkey.from_obj("./resources/susan.obj")) {
 		throw std::runtime_error("Could not load mesh from obj");
 	}
 	upload_mesh(_mesh_tri);
