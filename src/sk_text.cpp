@@ -1,3 +1,4 @@
+#include "globals.h"
 #include "sk_text.h"
 
 #include <array>
@@ -7,6 +8,7 @@
 #include <CImg.h>
 #include <iostream>
 #include <vector>
+#include "../stb/stb_image.h"
 #define FONT_SIZE 64
 cimg_library::CImg<unsigned char> img{ 500,500,1,4 };
 namespace csl {

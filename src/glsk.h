@@ -1,8 +1,6 @@
 #pragma once
+#include "globals.h"
 #include <cstdint>
-#include <string>
-#include <vector>
-#include <vulkan/vulkan_core.h>
 
 namespace vk {
 	class Instance;

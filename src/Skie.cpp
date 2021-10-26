@@ -1,9 +1,8 @@
+#include "globals.h"
 #include "Skie.h"
 #include "glsk.h"
-#include "../vk-bootstrap/src/VkBootstrap.h"
 #include "ranges"
 #define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
 #include <glm/ext/matrix_clip_space.hpp> // glm::perspective
 
