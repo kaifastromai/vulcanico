@@ -1,4 +1,4 @@
-
+#include "globals.h"
 #include <iostream>
 #include "Skie.h"
 #include "sk_text.h"

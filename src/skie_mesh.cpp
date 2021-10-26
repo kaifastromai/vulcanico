@@ -1,6 +1,5 @@
 #include "globals.h"
 #include "skie_mesh.h"
-#include <tiny_obj_loader.h>
 
 sk::VertexInputDescription sk::Vertex::get_vertex_description() {
 

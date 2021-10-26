@@ -170,12 +170,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\globals.cpp" />
+    <ClCompile Include="src\globals.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\sk_text.cpp" />
     <ClCompile Include="src\glsk.cpp" />
     <ClCompile Include="src\skie_mesh.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Skie.cpp" />
+    <ClCompile Include="src\vma_include.cpp" />
     <ClCompile Include="vk-bootstrap\src\VkBootstrap.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -1,3 +1,4 @@
+#include "globals.h"
 #include "glsk.h"
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>

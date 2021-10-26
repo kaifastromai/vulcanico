@@ -5,12 +5,16 @@
 #include <stdexcept>
 #include <string>
 #include <harfbuzz/hb-ft.h>
+#include <lodepng.h>
+#define cimg_use_png
 #include <CImg.h>
 #include <iostream>
 #include <vector>
-#include "../stb/stb_image.h"
 #define FONT_SIZE 64
-cimg_library::CImg<unsigned char> img{ 500,500,1,4 };
+constexpr uint32_t WIDTH = 500;
+constexpr uint32_t HEIGHT = 500;
+
+std::vector<int> img(WIDTH* HEIGHT);
 namespace csl {
 	struct vector
 	{
@@ -27,22 +31,25 @@ namespace csl {
 }
 #define FONT_DIR "./resources/fonts/CascadiaCode.ttf"
 void write_to_pixel(FT_GlyphSlot glyph, csl::vector pen_pos) {
-	std::cout << glyph->bitmap.width << std::endl;
+	
 	pen_pos += {0, 250};
-
-	std::cout << (uint8_t)glyph->bitmap.pixel_mode << std::endl;
 	size_t y = 0;
 	for(size_t h=pen_pos.y;h>=pen_pos.y-glyph->bitmap.rows;h--)
 	{
 		for(size_t w=pen_pos.x;w<glyph->bitmap.width+pen_pos.x;w++)
 		{
-			auto alpha = *(glyph->bitmap.buffer + glyph->bitmap.width * (glyph->bitmap.rows - y - 1) + (w - pen_pos.x));
-			std::array<unsigned char, 4> val{ 0,0,0,alpha };
-			img.atXY(w, h) = *val.data();
+			unsigned int row = (glyph->bitmap.rows-y) * (glyph->bitmap.width);
+			unsigned int column= (w - pen_pos.x);
+			auto alpha = (glyph->bitmap.buffer[row+column]);
+			//std::cout << "Alpha is " <<(int)alpha<< std::endl;
+			std::array<unsigned char, 4> val{ 0xFF,255,255,alpha };
+			unsigned int v;
+			std::memcpy(&v, val.data(),sizeof(int));
+			img[WIDTH * h + w] = v;
+			
 		}
 		y++;
 	}
-	std::cout << "But it's clearly working..." << std::endl;
 }
 
 void sk::text::test() {
@@ -86,11 +93,14 @@ void sk::text::test() {
 		FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
 
 		write_to_pixel(face->glyph,cursor_pos);
+		std::cout <<"Xoff "<< glyph_pos[i].x_offset << "Xad " << glyph_pos[i].x_advance << std::endl;
+		std::cout <<"Yoff "<< glyph_pos[i].y_offset << "Yad " << glyph_pos[i].y_advance << std::endl;
 		cursor_pos.x += (glyph_pos[i].x_advance + glyph_pos[i].x_offset) / 64;
 		cursor_pos.y += (glyph_pos[i].y_advance + glyph_pos[i].y_offset) / 64;
 
 	}
-	img.save("./resources/outtext.tiff");
+
+	lodepng_encode32_file("./resources/out.png", reinterpret_cast<const unsigned char*>(img.data()), 500, 500);
 
 
 

@@ -1,14 +1,7 @@
 #pragma once
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <vulkan/vulkan.hpp>
-#include <vector>
-#include <vk_mem_alloc.h>
-
-
+#include "globals.h"
 constexpr bool kDebug = true;
+#include "vk_mem_alloc.h"
 
 
 

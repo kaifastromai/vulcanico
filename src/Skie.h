@@ -1,13 +1,9 @@
 #pragma once
-#include <deque>
-#define  VULKAN_HPP_RAII_ENABLE_DEFAULT_CONSTRUCTORS
-#include <vulkan/vulkan_raii.hpp>
-#include <functional>
+#include "globals.h"
 #include "skie_mesh.h"
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
 
-#include <glm/glm.hpp>
 
 
 struct GLFWwindow;
